@@ -8,6 +8,8 @@ import AppKit
 final class BrowserTab: NSObject, ObservableObject, Identifiable {
     let id = UUID()
     let webView: WKWebView
+    // Keep a background delegate so pinned/non-visible tabs still update state
+    private var backgroundDelegate: BackgroundDelegate?
     @Published var title: String
     @Published var urlString: String
     @Published var isPinned: Bool = false
@@ -26,6 +28,12 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
         self.webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0.1 Safari/605.1.15"
         self.title = "New Tab"
         super.init()
+        // Attach a background delegate so loading/rendering events fire even when
+        // the tab's WKWebView isn't currently mounted in SwiftUI.
+        let delegate = BackgroundDelegate(tab: self)
+        self.backgroundDelegate = delegate
+        self.webView.navigationDelegate = delegate
+        self.webView.uiDelegate = delegate
         // Defer loading by default; pinned tabs will be eagerly loaded by the store.
     }
 
@@ -91,6 +99,21 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
     static func ensureScheme(_ s: String) -> String {
         if s.hasPrefix("http://") || s.hasPrefix("https://") { return s }
         return "https://" + s
+    }
+}
+
+// A lightweight delegate that mirrors BrowserWebView.Coordinator's responsibilities.
+// This keeps pinned tabs updating title/history/favicon even when off-screen.
+private final class BackgroundDelegate: NSObject, WKNavigationDelegate, WKUIDelegate {
+    weak var tab: BrowserTab?
+    init(tab: BrowserTab) { self.tab = tab }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        tab?.updateMetadata(from: webView)
+    }
+
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        decisionHandler(.allow)
     }
 }
 
