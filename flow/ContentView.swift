@@ -12,7 +12,6 @@ struct ContentView: View {
     @State private var hoverSidebar = false
 
     @State private var sidebarWidth: CGFloat = 240
-    @State private var dragStartWidth: CGFloat? = nil
         private let sidebarMinWidth: CGFloat = 200
         private let sidebarMaxWidth: CGFloat = 380
     
@@ -27,56 +26,45 @@ struct ContentView: View {
                 .ignoresSafeArea(.all, edges: .top)
 
             // Main content with optional fixed sidebar (custom split layout)
-            HStack(spacing: 0) {
+            Group {
                 if mode == .fixed {
-                    ZStack(alignment: .trailing) {
+                    CustomHSplit(leadingWidth: $sidebarWidth, minWidth: sidebarMinWidth, maxWidth: sidebarMaxWidth, dragHandleWidth: 8) {
                         SidebarView(mode: $mode)
                             .environmentObject(store)
                             .padding([.top, .bottom, .leading], contentPadding)
                             .padding(.trailing, contentPadding/2)
-                            .frame(width: sidebarWidth)
                             .ignoresSafeArea(.all, edges: .top)
                             .transition(.move(edge: .leading))
-
-                        // Invisible drag handle to resize (acts like hidden divider)
-                        Rectangle()
-                            .fill(Color.clear)
-                            .contentShape(Rectangle())
-                            .frame(width: 6)
-                            .gesture(
-                                DragGesture(minimumDistance: 1)
-                                    .onChanged { value in
-                                        if dragStartWidth == nil { dragStartWidth = sidebarWidth }
-                                        let base = dragStartWidth ?? sidebarWidth
-                                        let newWidth = min(max(base + value.translation.width, sidebarMinWidth), sidebarMaxWidth)
-                                        if abs(newWidth - sidebarWidth) > 0.1 {
-                                            sidebarWidth = newWidth
-                                        }
-                                    }
-                                    .onEnded { _ in
-                                        dragStartWidth = nil
-                                    }
-                            )
+                    } trailing: {
+                        Group {
+                            if let active = store.active {
+                                BrowserWebView(tab: active)
+                                    .id(active.id)
+                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                    .shadow(radius: 5)
+                                    .padding(EdgeInsets(top: contentPadding, leading: contentPadding/2, bottom: contentPadding, trailing: contentPadding))
+                            } else {
+                                Color.clear
+                            }
+                        }
+                        .ignoresSafeArea(.all, edges: .top)
                     }
-                }
-
-                Group {
-                    if let active = store.active {
-                        BrowserWebView(tab: active)
-                            .id(active.id)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .shadow(radius: 5)
-                            .padding(
-                                mode == .fixed
-                                ? EdgeInsets(top: contentPadding, leading: contentPadding/2, bottom: contentPadding, trailing: contentPadding)
-                                : EdgeInsets(top: contentPadding, leading: contentPadding, bottom: contentPadding, trailing: contentPadding)
-                            )
-                    } else {
-                        Color.clear
+                    .animation(nil, value: sidebarWidth)
+                } else {
+                    Group {
+                        if let active = store.active {
+                            BrowserWebView(tab: active)
+                                .id(active.id)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .shadow(radius: 5)
+                                .padding(EdgeInsets(top: contentPadding, leading: contentPadding, bottom: contentPadding, trailing: contentPadding))
+                        } else {
+                            Color.clear
+                        }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .ignoresSafeArea(.all, edges: .top)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .ignoresSafeArea(.all, edges: .top)
             }
 
             // Floating sidebar overlay when in floating mode
@@ -95,7 +83,7 @@ struct ContentView: View {
 
             // Hot zone at the leading edge to reveal the sidebar (floating mode only)
             if mode == .floating {
-                Color.red
+                Color.clear
                     .contentShape(Rectangle())
                     .frame(width: 8)
                     .onHover { hovering in
