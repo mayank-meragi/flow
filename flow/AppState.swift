@@ -1,11 +1,16 @@
 import SwiftUI
 import Combine
 
+enum RightPanelContent {
+    case history
+    // future: bookmarks, downloads, etc.
+}
+
 final class AppState: ObservableObject {
     @Published var showCommandBar: Bool = false
     @Published var showTabSwitcher: Bool = false
-    @Published var showHistory: Bool = false
     @Published var tabSwitcherSelectedIndex: Int = 0
+    @Published var rightPanelItem: RightPanelContent? = nil
 
     // Commit target when ctrl is released
     var onTabSwitcherCommit: ((Int) -> Void)?
@@ -38,4 +43,8 @@ final class AppState: ObservableObject {
             showTabSwitcher = false
         }
     }
+
+    // Right Panel control
+    func openRightPanel(_ item: RightPanelContent) { rightPanelItem = item }
+    func closeRightPanel() { rightPanelItem = nil }
 }

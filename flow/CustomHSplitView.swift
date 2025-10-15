@@ -12,6 +12,8 @@ struct CustomHSplit<Leading: View, Trailing: View>: View {
     var minWidth: CGFloat
     var maxWidth: CGFloat
     var dragHandleWidth: CGFloat = 8
+    var suppressImplicitAnimations: Bool = true
+    var animationDuration: Double = 0.25
     var leading: () -> Leading
     var trailing: () -> Trailing
 
@@ -20,11 +22,22 @@ struct CustomHSplit<Leading: View, Trailing: View>: View {
     @State private var cursorPushed: Bool = false
     #endif
 
-    init(leadingWidth: Binding<CGFloat>, minWidth: CGFloat, maxWidth: CGFloat, dragHandleWidth: CGFloat = 8, @ViewBuilder leading: @escaping () -> Leading, @ViewBuilder trailing: @escaping () -> Trailing) {
+    init(
+        leadingWidth: Binding<CGFloat>,
+        minWidth: CGFloat,
+        maxWidth: CGFloat,
+        dragHandleWidth: CGFloat = 8,
+        suppressImplicitAnimations: Bool = true,
+        animationDuration: Double = 0.25,
+        @ViewBuilder leading: @escaping () -> Leading,
+        @ViewBuilder trailing: @escaping () -> Trailing
+    ) {
         self._leadingWidth = leadingWidth
         self.minWidth = minWidth
         self.maxWidth = maxWidth
         self.dragHandleWidth = dragHandleWidth
+        self.suppressImplicitAnimations = suppressImplicitAnimations
+        self.animationDuration = animationDuration
         self.leading = leading
         self.trailing = trailing
     }
@@ -76,7 +89,7 @@ struct CustomHSplit<Leading: View, Trailing: View>: View {
             trailing()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .animation(nil, value: leadingWidth)
+        .animation(suppressImplicitAnimations ? nil : .easeInOut(duration: animationDuration), value: leadingWidth)
     }
 
     private func snapToPixel(_ value: CGFloat) -> CGFloat {

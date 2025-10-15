@@ -5,13 +5,13 @@ import AppKit
 
 struct RightPanelDragHandle: View {
     @Binding var width: CGFloat
+    let minWidth: CGFloat
+    let maxWidth: CGFloat
     @State private var dragStart: CGFloat?
     #if os(macOS)
     @State private var cursorPushed = false
     #endif
 
-    private let minWidth: CGFloat = 240
-    private let maxWidth: CGFloat = 520
     private let handleWidth: CGFloat = 8
 
     var body: some View {
@@ -56,4 +56,3 @@ struct RightPanelDragHandle: View {
         #endif
     }
 }
-

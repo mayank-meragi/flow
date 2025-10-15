@@ -44,8 +44,7 @@ struct SidebarView: View {
               Image(systemName: "arrow.clockwise")
                 .foregroundStyle(.primary)
             }
-
-            Button(action: { appState.showHistory = true }) {
+            Button(action: { appState.openRightPanel(.history) }) {
               Image(systemName: "clock")
                 .foregroundStyle(.primary)
             }
