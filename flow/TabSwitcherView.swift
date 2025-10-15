@@ -40,6 +40,8 @@ struct TabSwitcherView: View {
                             .padding(8)
                             .background(highlight(for: idx))
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            // Dull sleeping tabs slightly
+                            .opacity(tab.isLoaded ? 1.0 : 0.7)
                         }
                     }
                     .padding(.horizontal, 2)

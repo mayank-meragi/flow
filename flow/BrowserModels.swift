@@ -10,6 +10,9 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
     let webView: WKWebView
     @Published var title: String
     @Published var urlString: String
+    @Published var isPinned: Bool = false
+    // Whether content has been loaded at least once in this session
+    @Published var isLoaded: Bool = false
     @Published var history: [HistoryEntry] = []
     #if os(macOS)
     @Published var favicon: NSImage?
@@ -23,10 +26,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
         self.webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0.1 Safari/605.1.15"
         self.title = "New Tab"
         super.init()
-        let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty, let url = URL(string: BrowserTab.ensureScheme(trimmed)) {
-            webView.load(URLRequest(url: url))
-        }
+        // Defer loading by default; pinned tabs will be eagerly loaded by the store.
     }
 
     // Update metadata (title + favicon) after navigation finishes
@@ -35,6 +35,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
         if let currentURL = webView.url?.absoluteString, !currentURL.isEmpty {
             appendHistoryIfNeeded(urlString: currentURL, title: self.title)
         }
+        self.isLoaded = true
         #if os(macOS)
         fetchFavicon(from: webView)
         #endif
@@ -71,6 +72,13 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
         let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty, let url = URL(string: BrowserTab.ensureScheme(trimmed)) {
             webView.load(URLRequest(url: url))
+        }
+    }
+
+    // Load if not already loaded
+    func ensureLoaded() {
+        if !isLoaded {
+            loadCurrentURL()
         }
     }
 
@@ -113,6 +121,8 @@ final class BrowserStore: ObservableObject {
         attachObservers(to: t)
         tabs.append(t)
         activeTabID = t.id
+        // New active tab: ensure it starts loading
+        t.ensureLoaded()
         saveState()
         return t.id
     }
@@ -125,7 +135,13 @@ final class BrowserStore: ObservableObject {
         }
     }
 
-    func select(tabID: UUID) { activeTabID = tabID }
+    func select(tabID: UUID) {
+        activeTabID = tabID
+        // Lazy-load non-pinned tabs when selected
+        if let tab = tabs.first(where: { $0.id == tabID }) {
+            tab.ensureLoaded()
+        }
+    }
     
     // Helpers for tab indexing and selection by index
     var activeIndex: Int? { tabs.firstIndex(where: { $0.id == activeTabID }) }
@@ -167,6 +183,7 @@ private struct PersistedTab: Codable {
     let urlString: String
     let title: String
     let history: [HistoryEntry]
+    let isPinned: Bool
 }
 
 private struct PersistedState: Codable {
@@ -202,7 +219,7 @@ extension BrowserStore {
         enc.outputFormatting = [.prettyPrinted]
         enc.dateEncodingStrategy = .iso8601
         let tabsPayload: [PersistedTab] = tabs.map { t in
-            PersistedTab(id: t.id, urlString: t.urlString, title: t.title, history: t.history)
+            PersistedTab(id: t.id, urlString: t.urlString, title: t.title, history: t.history, isPinned: t.isPinned)
         }
         let payload = PersistedState(tabs: tabsPayload, activeTabID: activeTabID)
         if let data = try? enc.encode(payload) {
@@ -216,6 +233,7 @@ extension BrowserStore {
             let t = BrowserTab(urlString: s.urlString)
             t.history = s.history
             t.title = s.title
+            t.isPinned = s.isPinned
             // Force identity to match persisted ID for active selection
             // Note: BrowserTab.id is let, so we can't override it; instead, we select by index below.
             created.append(t)
@@ -229,6 +247,10 @@ extension BrowserStore {
         }
         // Observe tabs for changes
         tabs.forEach { attachObservers(to: $0) }
+        // Eager-load pinned tabs in the background
+        tabs.filter { $0.isPinned }.forEach { $0.ensureLoaded() }
+        // Ensure the active tab is loaded so it's ready immediately
+        if let active = self.active { active.ensureLoaded() }
         // Persist immediately to normalize IDs mapping
         saveState()
     }
@@ -242,6 +264,13 @@ extension BrowserStore {
             .store(in: &cancellables)
         tab.$history
             .sink { [weak self] _ in self?.saveState() }
+            .store(in: &cancellables)
+        tab.$isPinned
+            .sink { [weak self, weak tab] newVal in
+                // Persist pin changes and ensure pinned tabs are loaded
+                if newVal { tab?.ensureLoaded() }
+                self?.saveState()
+            }
             .store(in: &cancellables)
     }
 }

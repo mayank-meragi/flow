@@ -71,7 +71,33 @@ struct SidebarView: View {
         // Tabs list
         ScrollView {
           VStack(alignment: .leading, spacing: 4) {
-            ForEach(store.tabs) { tab in
+            // Group pinned first, then others, with a divider between
+            let pinned = store.tabs.filter { $0.isPinned }
+            let others = store.tabs.filter { !$0.isPinned }
+
+            ForEach(pinned) { tab in
+              TabRow(
+                tab: tab,
+                isActive: store.active?.id == tab.id,
+                select: { store.select(tabID: tab.id) },
+                close: { store.close(tabID: tab.id) }
+              )
+              .glassEffect(
+                store.active?.id == tab.id
+                ? .regular
+                : .identity,
+                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+              )
+              .glassEffectID(tab.id.uuidString, in: glassNS)
+            }
+
+            if !pinned.isEmpty && !others.isEmpty {
+              Divider()
+                .padding(.vertical, 6)
+                .opacity(0.6)
+            }
+
+            ForEach(others) { tab in
               TabRow(
                 tab: tab,
                 isActive: store.active?.id == tab.id,
@@ -153,6 +179,19 @@ private struct TabRow: View {
       .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
     .buttonStyle(.plain)
+    // Dull sleeping (not-yet-loaded) tabs slightly when inactive
+    .opacity(tab.isLoaded || isActive ? 1.0 : 0.6)
+    .contextMenu {
+      if tab.isPinned {
+        Button(action: { tab.isPinned = false }) {
+          Label("Unpin Tab", systemImage: "pin.slash")
+        }
+      } else {
+        Button(action: { tab.isPinned = true }) {
+          Label("Pin Tab", systemImage: "pin")
+        }
+      }
+    }
   }
 
   @ViewBuilder
