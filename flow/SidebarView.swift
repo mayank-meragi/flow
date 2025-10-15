@@ -49,11 +49,6 @@ struct SidebarView: View {
                 })
                 .textFieldStyle(.roundedBorder)
                 .disabled(store.active == nil)
-
-                Button(action: { store.active?.loadCurrentURL() }) {
-                    Image(systemName: "arrow.right.circle.fill")
-                }
-                .buttonStyle(.plain)
             }
             .padding(.horizontal, 8)
 
@@ -61,23 +56,10 @@ struct SidebarView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(store.tabs) { tab in
-                        Button(action: { store.select(tabID: tab.id) }) {
-                            HStack {
-                                Text(tab.title.isEmpty ? tab.urlString : tab.title)
-                                    .lineLimit(1)
-                                    .foregroundColor(store.active?.id == tab.id ? .white : .white.opacity(0.85))
-                                Spacer()
-                                Button(role: .destructive, action: { store.close(tabID: tab.id) }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                }
-                                .buttonStyle(.plain)
-                                .foregroundStyle(.white.opacity(0.7))
-                            }
-                            .padding(8)
-                            .background(store.active?.id == tab.id ? Color.white.opacity(0.2) : Color.white.opacity(0.08))
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                        }
-                        .buttonStyle(.plain)
+                        TabRow(tab: tab,
+                               isActive: store.active?.id == tab.id,
+                               select: { store.select(tabID: tab.id) },
+                               close: { store.close(tabID: tab.id) })
                     }
                     Button(action: { store.newTab() }) {
                         HStack {
@@ -102,5 +84,55 @@ struct SidebarView: View {
 
     private func toggleMode() {
         mode = (mode == .fixed) ? .floating : .fixed
+    }
+}
+
+private struct TabRow: View {
+    @ObservedObject var tab: BrowserTab
+    let isActive: Bool
+    let select: () -> Void
+    let close: () -> Void
+
+    var body: some View {
+        Button(action: select) {
+            HStack(spacing: 8) {
+                faviconView
+                Text(tab.title.isEmpty ? tab.urlString : tab.title)
+                    .lineLimit(1)
+                    .foregroundColor(isActive ? .white : .white.opacity(0.85))
+                Spacer()
+                Button(role: .destructive, action: close) {
+                    Image(systemName: "xmark.circle.fill")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.white.opacity(0.7))
+            }
+            .padding(8)
+            .background(isActive ? Color.white.opacity(0.2) : Color.white.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var faviconView: some View {
+        #if os(macOS)
+        if let icon = tab.favicon {
+            Image(nsImage: icon)
+                .resizable()
+                .interpolation(.high)
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 16, height: 16)
+                .cornerRadius(3)
+        } else {
+            Image(systemName: "globe")
+                .foregroundStyle(.white.opacity(0.8))
+                .frame(width: 16, height: 16)
+        }
+        #else
+        Image(systemName: "globe")
+            .foregroundStyle(.white.opacity(0.8))
+            .frame(width: 16, height: 16)
+        #endif
     }
 }

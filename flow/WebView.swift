@@ -13,8 +13,7 @@ struct BrowserWebView: NSViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            guard let tab = tab else { return }
-            tab.title = webView.title ?? tab.urlString
+            tab?.updateMetadata(from: webView)
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
