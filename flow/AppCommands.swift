@@ -15,6 +15,13 @@ struct AppCommands: Commands {
                 .keyboardShortcut("t", modifiers: [.command])
         }
 
+        CommandMenu("Tabs") {
+            Button("Next Tab (Switcher)") { tabSwitcherNext() }
+                .keyboardShortcut(.tab, modifiers: [.control])
+            Button("Previous Tab (Switcher)") { tabSwitcherPrevious() }
+                .keyboardShortcut(.tab, modifiers: [.control, .shift])
+        }
+
         CommandMenu("Debug") {
             Button("Show User-Agent") { showUserAgent() }
             Toggle("Disable Content Rules", isOn: $engine.contentRulesDisabled)
@@ -102,5 +109,23 @@ struct AppCommands: Commands {
         engine.clearSiteData(forDomains: [host]) {
             showInfo("Cleared Cookies + Cache", "Removed data for: \(host)")
         }
+    }
+}
+
+extension AppCommands {
+    private func tabSwitcherNext() {
+        let total = store.tabs.count
+        guard total > 0 else { return }
+        let currentIdx = store.activeIndex ?? 0
+        if appState.showTabSwitcher == false { appState.beginTabSwitching(currentIndex: currentIdx) }
+        appState.stepTabSwitching(count: 1, total: total)
+    }
+
+    private func tabSwitcherPrevious() {
+        let total = store.tabs.count
+        guard total > 0 else { return }
+        let currentIdx = store.activeIndex ?? 0
+        if appState.showTabSwitcher == false { appState.beginTabSwitching(currentIndex: currentIdx) }
+        appState.stepTabSwitching(count: -1, total: total)
     }
 }

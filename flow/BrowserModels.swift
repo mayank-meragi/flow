@@ -102,6 +102,13 @@ final class BrowserStore: ObservableObject {
     }
 
     func select(tabID: UUID) { activeTabID = tabID }
+    
+    // Helpers for tab indexing and selection by index
+    var activeIndex: Int? { tabs.firstIndex(where: { $0.id == activeTabID }) }
+    func select(index: Int) {
+        guard tabs.indices.contains(index) else { return }
+        activeTabID = tabs[index].id
+    }
 
     func goBack() { active?.webView.goBack() }
     func goForward() { active?.webView.goForward() }

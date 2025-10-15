@@ -78,8 +78,28 @@ struct ContentView: View {
                 CommandBarView(isPresented: $appState.showCommandBar)
             }
         }
+        // Overlay: Tab Switcher (appears above everything)
+        .overlay(alignment: .center) {
+            if appState.showTabSwitcher {
+                TabSwitcherView()
+            }
+        }
+        // Always-on modifier key monitor to detect Ctrl release
+        .overlay(alignment: .topLeading) {
+            ModifierKeyMonitor { flags in
+                #if os(macOS)
+                appState.setControlDown(flags.contains(.control))
+                #endif
+            }
+            .frame(width: 0, height: 0)
+        }
         .onAppear {
             hideNativeTrafficLights()
+            appState.onTabSwitcherCommit = { idx in
+                if store.tabs.indices.contains(idx) {
+                    store.select(index: idx)
+                }
+            }
         }
     }
 
