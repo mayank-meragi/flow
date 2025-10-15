@@ -115,8 +115,9 @@ struct SidebarView: View {
   }
 
   private func toggleMode() {
+    let newMode: SidebarMode = (mode == .fixed) ? .floating : .fixed
     withAnimation(.easeInOut(duration: 0.25)) {
-      mode = (mode == .fixed) ? .floating : .fixed
+      mode = newMode
     }
   }
 }
@@ -172,3 +173,4 @@ private struct TabRow: View {
     #endif
   }
 }
+

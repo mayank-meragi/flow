@@ -11,7 +11,9 @@ struct ContentView: View {
     @State private var hoverEdge = false
     @State private var hoverSidebar = false
 
-    private let sidebarWidth: CGFloat = 240
+    @State private var sidebarWidth: CGFloat = 240
+        private let sidebarMinWidth: CGFloat = 200
+        private let sidebarMaxWidth: CGFloat = 380
     
     let contentPadding: CGFloat = 10
 
@@ -24,12 +26,28 @@ struct ContentView: View {
                 .ignoresSafeArea(.all, edges: .top)
 
             // Main content with optional fixed sidebar
-            HStack(spacing: 0) {
+            HSplitView {
                 if mode == .fixed {
                     SidebarView(mode: $mode)
                         .environmentObject(store)
                         .padding([.top, .bottom, .leading], contentPadding)
                         .padding(.trailing, contentPadding/2)
+                        .frame(minWidth: sidebarMinWidth, idealWidth: sidebarWidth, maxWidth: sidebarMaxWidth)
+                        // AppKit-backed width observer to catch NSSplitView live resizes.
+                        .background(
+                            SplitPaneWidthObserver { measured in
+                                #if os(macOS)
+                                guard mode == .fixed else { return }
+                                if measured <= 1 { return }
+                                let horizontalPadding = contentPadding + (contentPadding / 2)
+                                let contentWidth = max(0, measured - horizontalPadding)
+                                let clamped = min(max(contentWidth, sidebarMinWidth), sidebarMaxWidth)
+                                if abs(clamped - sidebarWidth) > 0.5 {
+                                    sidebarWidth = clamped
+                                }
+                                #endif
+                            }
+                        )
                         .ignoresSafeArea(.all, edges: .top)
                         .transition(.move(edge: .leading))
                 }
@@ -49,6 +67,7 @@ struct ContentView: View {
                         Color.clear
                     }
                 }
+                
                 .ignoresSafeArea(.all, edges: .top)
             }
 
@@ -79,6 +98,7 @@ struct ContentView: View {
         }
         .animation(.easeInOut(duration: 0.25), value: mode)
         .animation(.easeInOut(duration: 0.2), value: showFloatingSidebar)
+        //
         // Overlay: Command Bar centered over everything
         .overlay(alignment: .center) {
             if appState.showCommandBar {
@@ -124,3 +144,55 @@ struct ContentView: View {
     }
 #endif
 }
+
+// Preference key to propagate measured sidebar width up the view tree
+private struct SidebarMeasuredWidthPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat { 0 }
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+#if os(macOS)
+// NSView-based observer that reports its width whenever the split pane resizes.
+private struct SplitPaneWidthObserver: NSViewRepresentable {
+    typealias NSViewType = ObservingView
+    var onChange: (CGFloat) -> Void
+
+    func makeNSView(context: Context) -> ObservingView {
+        let v = ObservingView()
+        v.onChange = onChange
+        return v
+    }
+
+    func updateNSView(_ nsView: ObservingView, context: Context) {
+        nsView.onChange = onChange
+    }
+
+    final class ObservingView: NSView {
+        var onChange: ((CGFloat) -> Void)?
+        private var lastWidth: CGFloat = -1
+
+        override func setFrameSize(_ newSize: NSSize) {
+            super.setFrameSize(newSize)
+            reportIfNeeded(newSize.width)
+        }
+
+        override func layout() {
+            super.layout()
+            reportIfNeeded(frame.size.width)
+        }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            reportIfNeeded(frame.size.width)
+        }
+
+        private func reportIfNeeded(_ width: CGFloat) {
+            guard abs(width - lastWidth) > 0.5 else { return }
+            lastWidth = width
+            onChange?(width)
+        }
+    }
+}
+#endif
