@@ -105,9 +105,7 @@ struct SidebarView: View {
       }
       // Clear glass with a subtle tint to lift contrast on busy backdrops
       .glassEffect(
-        .regular
-          .tint(.white.opacity(0.12))
-          .interactive(),
+        mode == .fixed ? .identity : .regular.interactive().tint(.white.opacity(0.12)),
         in: RoundedRectangle(cornerRadius: 16, style: .continuous)
       )
       .glassEffectID("sidebar-container", in: glassNS)

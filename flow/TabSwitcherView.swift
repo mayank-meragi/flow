@@ -13,9 +13,6 @@ struct TabSwitcherView: View {
 
             // Centered switcher panel
             VStack(alignment: .leading, spacing: 12) {
-                Text("Tabs")
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 14) {
@@ -56,7 +53,7 @@ struct TabSwitcherView: View {
                 .interactive(),
               in: RoundedRectangle(cornerRadius: 16, style: .continuous)
             )
-            .padding(24)
+//            .padding(24)
         }
         .onExitCommand { appState.dismissTabSwitcher(commit: false) }
     }
