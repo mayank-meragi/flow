@@ -44,6 +44,11 @@ struct SidebarView: View {
               Image(systemName: "arrow.clockwise")
                 .foregroundStyle(.primary)
             }
+
+            Button(action: { appState.showHistory = true }) {
+              Image(systemName: "clock")
+                .foregroundStyle(.primary)
+            }
           }
           .buttonStyle(.plain)
         }
@@ -173,4 +178,3 @@ private struct TabRow: View {
     #endif
   }
 }
-

@@ -10,6 +10,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
     let webView: WKWebView
     @Published var title: String
     @Published var urlString: String
+    @Published var history: [HistoryEntry] = []
     #if os(macOS)
     @Published var favicon: NSImage?
     #endif
@@ -31,6 +32,9 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
     // Update metadata (title + favicon) after navigation finishes
     func updateMetadata(from webView: WKWebView) {
         self.title = webView.title ?? self.urlString
+        if let currentURL = webView.url?.absoluteString, !currentURL.isEmpty {
+            appendHistoryIfNeeded(urlString: currentURL, title: self.title)
+        }
         #if os(macOS)
         fetchFavicon(from: webView)
         #endif
@@ -68,6 +72,12 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
         if !trimmed.isEmpty, let url = URL(string: BrowserTab.ensureScheme(trimmed)) {
             webView.load(URLRequest(url: url))
         }
+    }
+
+    private func appendHistoryIfNeeded(urlString: String, title: String) {
+        // Deduplicate consecutive entries for the same URL
+        if let last = history.last, last.urlString == urlString { return }
+        history.append(HistoryEntry(urlString: urlString, title: title, date: Date()))
     }
 
     static func ensureScheme(_ s: String) -> String {
@@ -117,4 +127,22 @@ final class BrowserStore: ObservableObject {
     func reload() { active?.webView.reload() }
     var canGoBack: Bool { active?.webView.canGoBack ?? false }
     var canGoForward: Bool { active?.webView.canGoForward ?? false }
+
+    // Aggregated history across tabs (most recent first)
+    var allHistory: [HistoryEntry] {
+        tabs.flatMap { $0.history }.sorted { $0.date > $1.date }
+    }
+
+    func navigateActive(to urlString: String) {
+        guard let active = active else { return }
+        active.urlString = urlString
+        active.loadCurrentURL()
+    }
+}
+
+struct HistoryEntry: Identifiable, Hashable {
+    let id = UUID()
+    let urlString: String
+    let title: String
+    let date: Date
 }

@@ -4,6 +4,7 @@ import Combine
 final class AppState: ObservableObject {
     @Published var showCommandBar: Bool = false
     @Published var showTabSwitcher: Bool = false
+    @Published var showHistory: Bool = false
     @Published var tabSwitcherSelectedIndex: Int = 0
 
     // Commit target when ctrl is released

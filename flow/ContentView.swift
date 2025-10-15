@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var hoverSidebar = false
 
     @State private var sidebarWidth: CGFloat = 240
+    @State private var dragStartWidth: CGFloat? = nil
         private let sidebarMinWidth: CGFloat = 200
         private let sidebarMaxWidth: CGFloat = 380
     
@@ -25,31 +26,38 @@ struct ContentView: View {
                 .cornerRadius(16)
                 .ignoresSafeArea(.all, edges: .top)
 
-            // Main content with optional fixed sidebar
-            HSplitView {
+            // Main content with optional fixed sidebar (custom split layout)
+            HStack(spacing: 0) {
                 if mode == .fixed {
-                    SidebarView(mode: $mode)
-                        .environmentObject(store)
-                        .padding([.top, .bottom, .leading], contentPadding)
-                        .padding(.trailing, contentPadding/2)
-                        .frame(minWidth: sidebarMinWidth, idealWidth: sidebarWidth, maxWidth: sidebarMaxWidth)
-                        // AppKit-backed width observer to catch NSSplitView live resizes.
-                        .background(
-                            SplitPaneWidthObserver { measured in
-                                #if os(macOS)
-                                guard mode == .fixed else { return }
-                                if measured <= 1 { return }
-                                let horizontalPadding = contentPadding + (contentPadding / 2)
-                                let contentWidth = max(0, measured - horizontalPadding)
-                                let clamped = min(max(contentWidth, sidebarMinWidth), sidebarMaxWidth)
-                                if abs(clamped - sidebarWidth) > 0.5 {
-                                    sidebarWidth = clamped
-                                }
-                                #endif
-                            }
-                        )
-                        .ignoresSafeArea(.all, edges: .top)
-                        .transition(.move(edge: .leading))
+                    ZStack(alignment: .trailing) {
+                        SidebarView(mode: $mode)
+                            .environmentObject(store)
+                            .padding([.top, .bottom, .leading], contentPadding)
+                            .padding(.trailing, contentPadding/2)
+                            .frame(width: sidebarWidth)
+                            .ignoresSafeArea(.all, edges: .top)
+                            .transition(.move(edge: .leading))
+
+                        // Invisible drag handle to resize (acts like hidden divider)
+                        Rectangle()
+                            .fill(Color.clear)
+                            .contentShape(Rectangle())
+                            .frame(width: 6)
+                            .gesture(
+                                DragGesture(minimumDistance: 1)
+                                    .onChanged { value in
+                                        if dragStartWidth == nil { dragStartWidth = sidebarWidth }
+                                        let base = dragStartWidth ?? sidebarWidth
+                                        let newWidth = min(max(base + value.translation.width, sidebarMinWidth), sidebarMaxWidth)
+                                        if abs(newWidth - sidebarWidth) > 0.1 {
+                                            sidebarWidth = newWidth
+                                        }
+                                    }
+                                    .onEnded { _ in
+                                        dragStartWidth = nil
+                                    }
+                            )
+                    }
                 }
 
                 Group {
@@ -67,7 +75,7 @@ struct ContentView: View {
                         Color.clear
                     }
                 }
-                
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea(.all, edges: .top)
             }
 
@@ -98,7 +106,6 @@ struct ContentView: View {
         }
         .animation(.easeInOut(duration: 0.25), value: mode)
         .animation(.easeInOut(duration: 0.2), value: showFloatingSidebar)
-        //
         // Overlay: Command Bar centered over everything
         .overlay(alignment: .center) {
             if appState.showCommandBar {
@@ -109,6 +116,13 @@ struct ContentView: View {
         .overlay(alignment: .center) {
             if appState.showTabSwitcher {
                 TabSwitcherView()
+            }
+        }
+        // Overlay: History
+        .overlay(alignment: .center) {
+            if appState.showHistory {
+                HistoryView(isPresented: $appState.showHistory)
+                    .environmentObject(store)
             }
         }
         // Always-on modifier key monitor to detect Ctrl release
@@ -145,54 +159,4 @@ struct ContentView: View {
 #endif
 }
 
-// Preference key to propagate measured sidebar width up the view tree
-private struct SidebarMeasuredWidthPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat { 0 }
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
-#if os(macOS)
-// NSView-based observer that reports its width whenever the split pane resizes.
-private struct SplitPaneWidthObserver: NSViewRepresentable {
-    typealias NSViewType = ObservingView
-    var onChange: (CGFloat) -> Void
-
-    func makeNSView(context: Context) -> ObservingView {
-        let v = ObservingView()
-        v.onChange = onChange
-        return v
-    }
-
-    func updateNSView(_ nsView: ObservingView, context: Context) {
-        nsView.onChange = onChange
-    }
-
-    final class ObservingView: NSView {
-        var onChange: ((CGFloat) -> Void)?
-        private var lastWidth: CGFloat = -1
-
-        override func setFrameSize(_ newSize: NSSize) {
-            super.setFrameSize(newSize)
-            reportIfNeeded(newSize.width)
-        }
-
-        override func layout() {
-            super.layout()
-            reportIfNeeded(frame.size.width)
-        }
-
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            reportIfNeeded(frame.size.width)
-        }
-
-        private func reportIfNeeded(_ width: CGFloat) {
-            guard abs(width - lastWidth) > 0.5 else { return }
-            lastWidth = width
-            onChange?(width)
-        }
-    }
-}
-#endif
+// (Custom split layout in use; no NSSplitView helpers needed.)
