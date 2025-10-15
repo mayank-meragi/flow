@@ -94,9 +94,7 @@ struct CommandBarView: View {
                 .frame(maxHeight: resultsMaxHeight)
             }
             .frame(maxWidth: 560)
-            .background(.ultraThickMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .shadow(color: .black.opacity(0.25), radius: 24, x: 0, y: 12)
+            .glassEffect(.regular.tint(.white.opacity(0.12)).interactive(), in: RoundedRectangle(cornerRadius: 16))
             .padding(24)
         }
         .onAppear { }
