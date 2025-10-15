@@ -14,6 +14,9 @@ struct ContentView: View {
     @State private var sidebarWidth: CGFloat = 240
         private let sidebarMinWidth: CGFloat = 200
         private let sidebarMaxWidth: CGFloat = 380
+    @State private var panelWidth: CGFloat = 320
+        private let panelMinWidth: CGFloat = 240
+        private let panelMaxWidth: CGFloat = 520
     
     let contentPadding: CGFloat = 10
 
@@ -25,45 +28,46 @@ struct ContentView: View {
                 .cornerRadius(16)
                 .ignoresSafeArea(.all, edges: .top)
 
-            // Main content with optional fixed sidebar (custom split layout)
-            Group {
+            // Main content with left sidebar and optional right panel
+            HStack(spacing: 0) {
+                // Left: optional sidebar
                 if mode == .fixed {
-                    CustomHSplit(leadingWidth: $sidebarWidth, minWidth: sidebarMinWidth, maxWidth: sidebarMaxWidth, dragHandleWidth: 8) {
-                        SidebarView(mode: $mode)
-                            .environmentObject(store)
-                            .padding([.top, .bottom, .leading], contentPadding)
-                            .padding(.trailing, contentPadding/2)
-                            .ignoresSafeArea(.all, edges: .top)
-                            .transition(.move(edge: .leading))
-                    } trailing: {
-                        Group {
-                            if let active = store.active {
-                                BrowserWebView(tab: active)
-                                    .id(active.id)
-                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                                    .shadow(radius: 5)
-                                    .padding(EdgeInsets(top: contentPadding, leading: contentPadding/2, bottom: contentPadding, trailing: contentPadding))
-                            } else {
-                                Color.clear
-                            }
-                        }
+                    SidebarView(mode: $mode)
+                        .environmentObject(store)
+                        .padding([.top, .bottom, .leading], contentPadding)
+                        .padding(.trailing, contentPadding/2)
+                        .frame(width: sidebarWidth)
                         .ignoresSafeArea(.all, edges: .top)
+                        .transition(.move(edge: .leading))
+                }
+
+                // Center: main content
+                Group {
+                    if let active = store.active {
+                        BrowserWebView(tab: active)
+                            .id(active.id)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .shadow(radius: 5)
+                            .padding(
+                                mode == .fixed
+                                ? EdgeInsets(top: contentPadding, leading: contentPadding/2, bottom: contentPadding, trailing: contentPadding)
+                                : EdgeInsets(top: contentPadding, leading: contentPadding, bottom: contentPadding, trailing: contentPadding)
+                            )
+                    } else {
+                        Color.clear
                     }
-                    .animation(nil, value: sidebarWidth)
-                } else {
-                    Group {
-                        if let active = store.active {
-                            BrowserWebView(tab: active)
-                                .id(active.id)
-                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                                .shadow(radius: 5)
-                                .padding(EdgeInsets(top: contentPadding, leading: contentPadding, bottom: contentPadding, trailing: contentPadding))
-                        } else {
-                            Color.clear
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .ignoresSafeArea(.all, edges: .top)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea(.all, edges: .top)
+
+                // Right: Panel
+                if appState.showHistory {
+                    RightPanelDragHandle(width: $panelWidth)
+                    RightPanelView(isPresented: $appState.showHistory)
+                        .environmentObject(store)
+                        .frame(width: panelWidth)
+                        .ignoresSafeArea(.all, edges: .top)
+                        .transition(.move(edge: .trailing))
                 }
             }
 
@@ -106,13 +110,7 @@ struct ContentView: View {
                 TabSwitcherView()
             }
         }
-        // Overlay: History
-        .overlay(alignment: .center) {
-            if appState.showHistory {
-                HistoryView(isPresented: $appState.showHistory)
-                    .environmentObject(store)
-            }
-        }
+        
         // Always-on modifier key monitor to detect Ctrl release
         .overlay(alignment: .topLeading) {
             ModifierKeyMonitor { flags in
