@@ -49,7 +49,7 @@ struct ContentView: View {
                     .padding(.trailing, contentPadding/2)
                     .ignoresSafeArea(.all, edges: .top)
             } main: {
-                mainContentView(trailingPadding: appState.isRightPanelVisible ? contentPadding/2 : contentPadding)
+                mainContentView(trailingPadding: contentPadding / 2)
             } right: {
                 if let item = appState.rightPanelItem, appState.isRightPanelVisible {
                     RightPanelContainer(title: panelTitle(for: item), isPresented: Binding(
@@ -58,6 +58,7 @@ struct ContentView: View {
                     )) {
                         panelContent(for: item)
                     }
+                    .ignoresSafeArea(.all, edges: .top)
                 } else {
                     Color.clear
                 }

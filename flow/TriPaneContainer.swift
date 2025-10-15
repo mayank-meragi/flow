@@ -66,37 +66,39 @@ struct TriPaneContainer<Left: View, Main: View, Right: View>: View {
             HStack(spacing: 0) {
                 // LEFT
                 ZStack(alignment: .trailing) {
-                    left()
-                        .frame(width: leftAnimWidth)
-                        .allowsHitTesting(leftAnimWidth > 0.5)
-
                     // Left drag handle
-                    Rectangle().fill(Color.clear)
-                        .contentShape(Rectangle())
-                        .frame(width: handleWidth)
-                        .zIndex(1)
-                        #if os(macOS)
-                        .onHover { hov in
-                            if hov { if !leftCursorPushed { NSCursor.resizeLeftRight.push(); leftCursorPushed = true } }
-                            else { if leftCursorPushed { NSCursor.pop(); leftCursorPushed = false } }
-                        }
-                        .onDisappear { if leftCursorPushed { NSCursor.pop(); leftCursorPushed = false } }
-                        #endif
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { g in
-                                    guard isLeftVisible else { return }
-                                    if leftDragStart == nil { leftDragStart = leftWidth }
-                                    let base = leftDragStart ?? leftWidth
-                                    let next = snap(base + g.translation.width, min: leftMin, max: leftMax)
-                                    var tx = Transaction(); tx.disablesAnimations = true
-                                    withTransaction(tx) {
-                                        leftWidth = next
-                                        leftAnimWidth = next
+                    if isLeftVisible {
+                        left()
+                            .frame(width: leftAnimWidth)
+                            .allowsHitTesting(leftAnimWidth > 0.5)
+                        
+                        Rectangle().fill(Color.clear)
+                            .contentShape(Rectangle())
+                            .frame(width: handleWidth)
+                            .zIndex(1)
+                            #if os(macOS)
+                            .onHover { hov in
+                                if hov { if !leftCursorPushed { NSCursor.resizeLeftRight.push(); leftCursorPushed = true } }
+                                else { if leftCursorPushed { NSCursor.pop(); leftCursorPushed = false } }
+                            }
+                            .onDisappear { if leftCursorPushed { NSCursor.pop(); leftCursorPushed = false } }
+                            #endif
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { g in
+                                        guard isLeftVisible else { return }
+                                        if leftDragStart == nil { leftDragStart = leftWidth }
+                                        let base = leftDragStart ?? leftWidth
+                                        let next = snap(base + g.translation.width, min: leftMin, max: leftMax)
+                                        var tx = Transaction(); tx.disablesAnimations = true
+                                        withTransaction(tx) {
+                                            leftWidth = next
+                                            leftAnimWidth = next
+                                        }
                                     }
-                                }
-                                .onEnded { _ in leftDragStart = nil }
-                        )
+                                    .onEnded { _ in leftDragStart = nil }
+                            )
+                    }
                 }
 
                 // MAIN (fills)
@@ -175,4 +177,3 @@ struct TriPaneContainer<Left: View, Main: View, Right: View>: View {
         #endif
     }
 }
-

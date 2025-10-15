@@ -21,8 +21,8 @@ struct RightPanelContainer<Content: View>: View {
                 .padding([.top, .horizontal], 8)
 
                 content
-                    .padding(.horizontal, 8)
-                    .padding(.bottom, 8)
+                    .padding(.trailing, 7)
+                    .padding(.bottom, 7)
             }
     }
 }
