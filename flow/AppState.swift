@@ -11,6 +11,7 @@ final class AppState: ObservableObject {
     @Published var showTabSwitcher: Bool = false
     @Published var tabSwitcherSelectedIndex: Int = 0
     @Published var rightPanelItem: RightPanelContent? = nil
+    @Published var isRightPanelVisible: Bool = false
 
     // Commit target when ctrl is released
     var onTabSwitcherCommit: ((Int) -> Void)?
@@ -45,6 +46,12 @@ final class AppState: ObservableObject {
     }
 
     // Right Panel control
-    func openRightPanel(_ item: RightPanelContent) { rightPanelItem = item }
-    func closeRightPanel() { rightPanelItem = nil }
+    func openRightPanel(_ item: RightPanelContent) {
+        rightPanelItem = item
+        isRightPanelVisible = true
+    }
+    func closeRightPanel() {
+        isRightPanelVisible = false
+        rightPanelItem = nil
+    }
 }

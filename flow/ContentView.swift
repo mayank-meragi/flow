@@ -15,7 +15,6 @@ struct ContentView: View {
         private let sidebarMinWidth: CGFloat = 200
         private let sidebarMaxWidth: CGFloat = 380
     @State private var panelWidth: CGFloat = 320
-    @State private var panelAnimatedWidth: CGFloat = 0
         private let panelMinWidth: CGFloat = 240
         private let panelMaxWidth: CGFloat = 520
     
@@ -29,97 +28,38 @@ struct ContentView: View {
                 .cornerRadius(16)
                 .ignoresSafeArea(.all, edges: .top)
 
-            // Main content using CustomHSplit on both sides
-            Group {
-                if mode == .fixed {
-                    // OUTER split: left sidebar vs rest
-                    CustomHSplit(leadingWidth: $sidebarWidth, minWidth: sidebarMinWidth, maxWidth: sidebarMaxWidth, dragHandleWidth: 8, suppressImplicitAnimations: false) {
-                        SidebarView(mode: $mode)
-                            .environmentObject(store)
-                            .padding([.top, .bottom, .leading], contentPadding)
-                            .padding(.trailing, contentPadding/2)
-                            .ignoresSafeArea(.all, edges: .top)
-                            .transition(.move(edge: .leading))
-                    } trailing: {
-                        // INNER split (only when right panel is open): main content vs right panel
-                        if let item = appState.rightPanelItem {
-                            GeometryReader { proxy in
-                                let total = proxy.size.width
-                                let minLeading = max(0, total - panelMaxWidth)
-                                let maxLeading = max(0, total - panelMinWidth)
-                                let leadingBinding = Binding<CGFloat>(
-                                    get: { max(minLeading, min(maxLeading, total - panelAnimatedWidth)) },
-                                    set: { newLeading in
-                                        let clampedLeading = min(max(newLeading, minLeading), maxLeading)
-                                        let newPanel = total - clampedLeading
-                                        let clampedPanel = min(max(newPanel, panelMinWidth), panelMaxWidth)
-                                        if abs(clampedPanel - panelWidth) > 0.5 {
-                                            // dragging – update both the target and animated widths without animation
-                                            var tx = Transaction(); tx.disablesAnimations = true
-                                            withTransaction(tx) {
-                                                panelWidth = clampedPanel
-                                                panelAnimatedWidth = clampedPanel
-                                            }
-                                        }
-                                    }
-                                )
-
-                                CustomHSplit(leadingWidth: leadingBinding, minWidth: minLeading, maxWidth: maxLeading, dragHandleWidth: 8, suppressImplicitAnimations: false) {
-                                    mainContentView(trailingPadding: contentPadding/2)
-                                } trailing: {
-                                    RightPanelContainer(title: panelTitle(for: item), isPresented: Binding(
-                                        get: { appState.rightPanelItem != nil },
-                                        set: { newVal in if !newVal { closeRightPanelAnimated() } }
-                                    )) {
-                                        panelContent(for: item)
-                                    }
-                                }
-                            }
-                            .onAppear { openRightPanelAnimated() }
-                        } else {
-                            // No right panel: just main content
-                            mainContentView(trailingPadding: contentPadding)
-                        }
+            TriPaneContainer(
+                leftWidth: $sidebarWidth,
+                rightWidth: $panelWidth,
+                isLeftVisible: Binding(
+                    get: { mode == .fixed },
+                    set: { mode = $0 ? .fixed : .floating }
+                ),
+                isRightVisible: $appState.isRightPanelVisible,
+                leftMin: sidebarMinWidth,
+                leftMax: sidebarMaxWidth,
+                rightMin: panelMinWidth,
+                rightMax: panelMaxWidth,
+                handleWidth: 8,
+                animationDuration: 0.45
+            ) {
+                SidebarView(mode: $mode)
+                    .environmentObject(store)
+                    .padding([.top, .bottom, .leading], contentPadding)
+                    .padding(.trailing, contentPadding/2)
+                    .ignoresSafeArea(.all, edges: .top)
+            } main: {
+                mainContentView(trailingPadding: appState.isRightPanelVisible ? contentPadding/2 : contentPadding)
+            } right: {
+                if let item = appState.rightPanelItem, appState.isRightPanelVisible {
+                    RightPanelContainer(title: panelTitle(for: item), isPresented: Binding(
+                        get: { appState.isRightPanelVisible },
+                        set: { newVal in if !newVal { closeRightPanelAnimated() } }
+                    )) {
+                        panelContent(for: item)
                     }
-                    .animation(nil, value: sidebarWidth)
                 } else {
-                    // Floating sidebar mode: no left split, optional right split
-                    if let item = appState.rightPanelItem {
-                        GeometryReader { proxy in
-                            let total = proxy.size.width
-                            let minLeading = max(0, total - panelMaxWidth)
-                            let maxLeading = max(0, total - panelMinWidth)
-                            let leadingBinding = Binding<CGFloat>(
-                                get: { max(minLeading, min(maxLeading, total - panelAnimatedWidth)) },
-                                set: { newLeading in
-                                    let clampedLeading = min(max(newLeading, minLeading), maxLeading)
-                                    let newPanel = total - clampedLeading
-                                    let clampedPanel = min(max(newPanel, panelMinWidth), panelMaxWidth)
-                                    if abs(clampedPanel - panelWidth) > 0.5 {
-                                        var tx = Transaction(); tx.disablesAnimations = true
-                                        withTransaction(tx) {
-                                            panelWidth = clampedPanel
-                                            panelAnimatedWidth = clampedPanel
-                                        }
-                                    }
-                                }
-                            )
-
-                            CustomHSplit(leadingWidth: leadingBinding, minWidth: minLeading, maxWidth: maxLeading, dragHandleWidth: 8, suppressImplicitAnimations: true) {
-                                mainContentView(trailingPadding: contentPadding/2)
-                            } trailing: {
-                                RightPanelContainer(title: panelTitle(for: item), isPresented: Binding(
-                                    get: { appState.rightPanelItem != nil },
-                                    set: { newVal in if !newVal { closeRightPanelAnimated() } }
-                                )) {
-                                    panelContent(for: item)
-                                }
-                            }
-                        }
-                        .onAppear { openRightPanelAnimated() }
-                    } else {
-                        mainContentView(trailingPadding: contentPadding)
-                    }
+                    Color.clear
                 }
             }
 
@@ -227,19 +167,10 @@ struct ContentView: View {
     private func closeRightPanelAnimated() {
         let dur = 0.45
         withAnimation(.easeInOut(duration: dur)) {
-            panelAnimatedWidth = 0
+            appState.isRightPanelVisible = false
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + dur) {
-            appState.closeRightPanel()
-        }
-    }
-
-    private func openRightPanelAnimated() {
-        let dur = 0.45
-        let target = max(panelWidth, panelMinWidth)
-        panelAnimatedWidth = 0
-        withAnimation(.easeInOut(duration: dur)) {
-            panelAnimatedWidth = target
+            appState.rightPanelItem = nil
         }
     }
 
