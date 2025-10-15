@@ -22,7 +22,8 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
         self.webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0.1 Safari/605.1.15"
         self.title = "New Tab"
         super.init()
-        if let url = URL(string: BrowserTab.ensureScheme(urlString)) {
+        let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty, let url = URL(string: BrowserTab.ensureScheme(trimmed)) {
             webView.load(URLRequest(url: url))
         }
     }
@@ -63,7 +64,8 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
     #endif
 
     func loadCurrentURL() {
-        if let url = URL(string: BrowserTab.ensureScheme(urlString)) {
+        let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty, let url = URL(string: BrowserTab.ensureScheme(trimmed)) {
             webView.load(URLRequest(url: url))
         }
     }
@@ -81,13 +83,13 @@ final class BrowserStore: ObservableObject {
     var active: BrowserTab? { tabs.first { $0.id == activeTabID } }
 
     init() {
-        let first = BrowserTab(urlString: "example.com")
-        tabs = [first]
-        activeTabID = first.id
+        // Start with no tabs; main view remains empty until user opens one
+        tabs = []
+        activeTabID = nil
     }
 
     @discardableResult
-    func newTab(url: String = "example.com") -> UUID {
+    func newTab(url: String) -> UUID {
         let t = BrowserTab(urlString: url)
         tabs.append(t)
         activeTabID = t.id

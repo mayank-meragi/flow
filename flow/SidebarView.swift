@@ -3,6 +3,7 @@ import SwiftUI
 struct SidebarView: View {
   @Binding var mode: SidebarMode
   @EnvironmentObject var store: BrowserStore
+  @EnvironmentObject var appState: AppState
   @Namespace private var glassNS
 
   var body: some View {
@@ -82,7 +83,7 @@ struct SidebarView: View {
               .glassEffectID(tab.id.uuidString, in: glassNS)
             }
 
-            Button(action: { store.newTab() }) {
+            Button(action: { appState.showCommandBar = true }) {
               HStack {
                 Image(systemName: "plus")
                 Text("New Tab")

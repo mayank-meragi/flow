@@ -109,7 +109,6 @@ struct CommandBarView: View {
         let canFwd = store.canGoForward
         let activeHost = store.active?.webView.url?.host ?? ""
         return [
-            CommandItem(title: "New Tab", subtitle: nil, isEnabled: true, action: { _ = store.newTab() }, keywords: ["new", "tab", "create"]),
             CommandItem(title: "Close Tab", subtitle: nil, isEnabled: store.active != nil, action: {
                 if let id = store.active?.id { store.close(tabID: id) }
             }, keywords: ["close", "tab", "delete"]),
