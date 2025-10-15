@@ -16,77 +16,69 @@ struct ContentView: View {
     let contentPadding: CGFloat = 10
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .leading) {
             // Background
-            Color.blue
+            Color.gray
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .cornerRadius(16)
                 .ignoresSafeArea(.all, edges: .top)
 
-            if mode == .fixed {
-                // Standard split: sidebar consumes layout space
-                HSplitView {
+            // Main content with optional fixed sidebar
+            HStack(spacing: 0) {
+                if mode == .fixed {
                     SidebarView(mode: $mode)
                         .environmentObject(store)
                         .padding([.top, .bottom, .leading], contentPadding)
                         .padding(.trailing, contentPadding/2)
                         .ignoresSafeArea(.all, edges: .top)
+                        .transition(.move(edge: .leading))
+                }
 
-                    Group {
-                        if let active = store.active {
-                            BrowserWebView(tab: active)
-                                .padding([.top, .bottom, .trailing], contentPadding)
-                                .padding(.leading, contentPadding/2)
-                                .id(active.id)
-                        } else {
-                            Color.black.opacity(0.02)
-                        }
+                Group {
+                    if let active = store.active {
+                        BrowserWebView(tab: active)
+                            .id(active.id)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .shadow(radius: 5)
+                            .padding(
+                                mode == .fixed
+                                ? EdgeInsets(top: contentPadding, leading: contentPadding/2, bottom: contentPadding, trailing: contentPadding)
+                                : EdgeInsets(top: contentPadding, leading: contentPadding, bottom: contentPadding, trailing: contentPadding)
+                            )
+                    } else {
+                        Color.clear
+                    }
+                }
+                .ignoresSafeArea(.all, edges: .top)
+            }
+
+            // Floating sidebar overlay when in floating mode
+            if mode == .floating && showFloatingSidebar {
+                SidebarView(mode: $mode)
+                    .environmentObject(store)
+                    .frame(width: sidebarWidth)
+                    .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 0)
+                    .transition(.move(edge: .leading))
+                    .zIndex(1)
+                    .onHover { hovering in
+                        withAnimation(.easeInOut(duration: 0.2)) { hoverSidebar = hovering }
                     }
                     .ignoresSafeArea(.all, edges: .top)
-                }
-            } else {
-                // Floating sidebar: main takes full space; sidebar overlays and slides in on hover
-                ZStack(alignment: .leading) {
-                    Group {
-                        if let active = store.active {
-                            BrowserWebView(tab: active)
-                                .padding(contentPadding)
-                                .id(active.id)
-                        } else {
-                            Color.black.opacity(0.02)
-                        }
+            }
+
+            // Hot zone at the leading edge to reveal the sidebar (floating mode only)
+            if mode == .floating {
+                Color.red
+                    .contentShape(Rectangle())
+                    .frame(width: 8)
+                    .onHover { hovering in
+                        withAnimation(.easeInOut(duration: 0.2)) { hoverEdge = hovering }
                     }
                     .ignoresSafeArea(.all, edges: .top)
-
-                    // Sidebar appears/disappears with a transition instead of offset
-                    if showFloatingSidebar {
-                        SidebarView(mode: $mode)
-                            .environmentObject(store)
-                            .frame(width: sidebarWidth)
-                            .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 0)
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .leading),
-                                removal: .move(edge: .leading)
-                            ))
-                            .zIndex(1)
-                            .onHover { hovering in
-                                withAnimation(.easeInOut(duration: 0.2)) { hoverSidebar = hovering }
-                            }
-                            .ignoresSafeArea(.all, edges: .top)
-                    }
-
-                    // Hot zone at the leading edge to reveal the sidebar
-                    Color.red
-                        .contentShape(Rectangle())
-                        .frame(width: 8)
-                        .onHover { hovering in
-                            withAnimation(.easeInOut(duration: 0.2)) { hoverEdge = hovering }
-                        }
-                        .ignoresSafeArea(.all, edges: .top)
-                }
-                .animation(.easeInOut(duration: 0.2), value: showFloatingSidebar)
             }
         }
+        .animation(.easeInOut(duration: 0.25), value: mode)
+        .animation(.easeInOut(duration: 0.2), value: showFloatingSidebar)
         // Overlay: Command Bar centered over everything
         .overlay(alignment: .center) {
             if appState.showCommandBar {

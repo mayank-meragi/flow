@@ -115,7 +115,9 @@ struct SidebarView: View {
   }
 
   private func toggleMode() {
-    mode = (mode == .fixed) ? .floating : .fixed
+    withAnimation(.easeInOut(duration: 0.25)) {
+      mode = (mode == .fixed) ? .floating : .fixed
+    }
   }
 }
 
