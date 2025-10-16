@@ -46,11 +46,14 @@ enum IconSet: Codable {
 
 // Contains all Codable models for manifest.json.
 struct Manifest: Codable {
-    let name: String
-    let version: String
+    let name: String?
     let manifest_version: Int
+    let version: String
+    let default_locale: String?
     let description: String?
     let icons: IconSet?
+
+    // Action
     let action: Action?
     let options_page: String?
     let permissions: [String]?
@@ -58,14 +61,14 @@ struct Manifest: Codable {
 
     enum CodingKeys: String, CodingKey {
         case name, version, manifest_version, description, icons, options_page, permissions,
-            host_permissions
+            host_permissions, default_locale
         case action  // MV3 key
         case browser_action  // MV2 key
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        name = try container.decode(String.self, forKey: .name)
+        name = try container.decodeIfPresent(String.self, forKey: .name)
         version = try container.decode(String.self, forKey: .version)
         manifest_version = try container.decode(Int.self, forKey: .manifest_version)
         description = try container.decodeIfPresent(String.self, forKey: .description)
@@ -73,6 +76,7 @@ struct Manifest: Codable {
         options_page = try container.decodeIfPresent(String.self, forKey: .options_page)
         permissions = try container.decodeIfPresent([String].self, forKey: .permissions)
         host_permissions = try container.decodeIfPresent([String].self, forKey: .host_permissions)
+        default_locale = try container.decodeIfPresent(String.self, forKey: .default_locale)
 
         // Handle action vs browser_action
         if let actionValue = try? container.decodeIfPresent(Action.self, forKey: .action) {
@@ -96,6 +100,7 @@ struct Manifest: Codable {
         try container.encodeIfPresent(options_page, forKey: .options_page)
         try container.encodeIfPresent(permissions, forKey: .permissions)
         try container.encodeIfPresent(host_permissions, forKey: .host_permissions)
+        try container.encodeIfPresent(default_locale, forKey: .default_locale)
         try container.encodeIfPresent(action, forKey: .action)
     }
 }

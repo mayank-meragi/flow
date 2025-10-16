@@ -8,6 +8,8 @@ class MV3Extension: Extension {
     let directoryURL: URL
     let storageManager: StorageManager
     let permissionManager: PermissionManager
+    let alarmsManager: AlarmsManager
+    let i18nManager: I18nManager
 
     init(manifest: Manifest, directoryURL: URL) {
         let id = UUID().uuidString
@@ -18,9 +20,25 @@ class MV3Extension: Extension {
         let allPermissions = (manifest.permissions ?? []) + (manifest.host_permissions ?? [])
         self.permissionManager = PermissionManager(
             extensionId: id, initialPermissions: allPermissions)
+        self.alarmsManager = AlarmsManager()
+        self.i18nManager = I18nManager(
+            extensionDirectory: directoryURL, defaultLocale: manifest.default_locale)
         self.runtime = MV3APIRuntime(
-            storageManager: self.storageManager, permissionManager: self.permissionManager,
-            extensionName: manifest.name ?? "Unknown Extension")
+            storageManager: self.storageManager,
+            permissionManager: self.permissionManager,
+            alarmsManager: self.alarmsManager,
+            i18nManager: self.i18nManager,
+            extensionName: manifest.name ?? "Unknown Extension"
+        )
+
+        // Weak self to avoid retain cycles
+        self.alarmsManager.onAlarm = { [weak self] alarm in
+            // This is tricky. We don't know which webView to broadcast to.
+            // For now, we can't fully implement this part without a way to
+            // access all active views for this extension.
+            // This will be revisited when a proper event broadcasting mechanism is in place.
+            print("Alarm fired: \(alarm.name). Broadcasting not yet implemented.")
+        }
     }
 
     func start() {}
@@ -57,6 +75,16 @@ class MV3Extension: Extension {
 
         case "permissions":
             runtime.permissions.handleCall(method: method, params: params) { result in
+                self.sendResponse(to: webView, callbackId: callbackId, result: result)
+            }
+
+        case "alarms":
+            runtime.alarms.handleCall(method: method, params: params) { result in
+                self.sendResponse(to: webView, callbackId: callbackId, result: result)
+            }
+
+        case "i18n":
+            runtime.i18n.handleCall(method: method, params: params) { result in
                 self.sendResponse(to: webView, callbackId: callbackId, result: result)
             }
 

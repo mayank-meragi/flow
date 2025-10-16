@@ -57,11 +57,11 @@ The goal of this phase is to support a core set of APIs that are common to both 
 - [x] **Storage API:**
     - [x] Implement `storage.local` and `storage.session`.
     - [x] Implement the `storage.onChanged` event.
-- [ ] **Alarms API:**
-    - [ ] Implement `alarms.create`, `alarms.get`, `alarms.getAll`, `alarms.clear`.
-    - [ ] Use a system timer (`Timer` in Swift) to trigger `alarms.onAlarm` events.
-- [ ] **Internationalization (i18n) API:**
-    - [ ] Implement `i18n.getMessage` to support localized strings from the `_locales` folder.
+- [x] **Alarms API:**
+    - [x] Implement `alarms.create`, `alarms.get`, `alarms.getAll`, `alarms.clear`.
+    - [x] Use a system timer (`Timer` in Swift) to trigger `alarms.onAlarm` events.
+- [x] **Internationalization (i18n) API:**
+    - [x] Implement `i18n.getMessage` to support localized strings from the `_locales` folder.
 
 ### 3. Browser Interaction APIs
 - [ ] **Tabs API:**
