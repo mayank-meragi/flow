@@ -56,7 +56,7 @@ The goal of this phase is to support a core set of APIs that are common to both 
     - [x] Implement `permissions.request`, `permissions.contains`, and `permissions.getAll`.
 - [x] **Storage API:**
     - [x] Implement `storage.local` and `storage.session`.
-    - [ ] Implement the `storage.onChanged` event.
+    - [x] Implement the `storage.onChanged` event.
 - [ ] **Alarms API:**
     - [ ] Implement `alarms.create`, `alarms.get`, `alarms.getAll`, `alarms.clear`.
     - [ ] Use a system timer (`Timer` in Swift) to trigger `alarms.onAlarm` events.

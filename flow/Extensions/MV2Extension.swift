@@ -41,8 +41,18 @@ class MV2Extension: Extension {
         case "storage":
             guard let area = body["area"] as? String else { return }
 
-            runtime.storage.handleCall(area: area, method: method, params: params) { result in
+            runtime.storage.handleCall(area: area, method: method, params: params) {
+                result, changes in
                 self.sendResponse(to: webView, callbackId: callbackId, result: result)
+
+                if let changes = changes, !changes.isEmpty {
+                    let changesJSON = changes.mapValues { $0.toJSON() }
+                    self.broadcastEvent(
+                        to: webView,
+                        name: "storage.onChanged",
+                        payload: ["changes": changesJSON, "area": area]
+                    )
+                }
             }
 
         case "permissions":
@@ -72,6 +82,24 @@ class MV2Extension: Extension {
 
         let script =
             "window.flowExtensionCallbacks[\(callbackId)](\(jsonString)); delete window.flowExtensionCallbacks[\(callbackId)];"
+
+        DispatchQueue.main.async {
+            webView.evaluateJavaScript(script)
+        }
+    }
+
+    private func broadcastEvent(to webView: WKWebView, name: String, payload: [String: Any]) {
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: payload, options: []),
+            let jsonString = String(data: jsonData, encoding: .utf8)
+        else {
+            print("Error serializing event payload")
+            return
+        }
+
+        // This is a simplified event dispatch. A real implementation would need a more robust
+        // event listener system in the JS context.
+        let script =
+            "window.flowBrowser.runtime.getEventListeners('\(name)').forEach(l => l(\(jsonString)))"
 
         DispatchQueue.main.async {
             webView.evaluateJavaScript(script)
