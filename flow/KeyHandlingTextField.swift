@@ -16,6 +16,7 @@ struct KeyHandlingTextField: NSViewRepresentable {
         tf.isBezeled = false
         tf.isBordered = false
         tf.drawsBackground = false
+        tf.focusRingType = .none
         tf.font = NSFont.systemFont(ofSize: NSFont.systemFontSize)
         tf.delegate = context.coordinator
         if autoFocus {
