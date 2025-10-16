@@ -172,19 +172,22 @@ private struct FolderSection: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
-      HStack(spacing: 6) {
+      HStack(alignment: .center, spacing: 8) {
         Circle()
           .fill(colorFromHex(folder.colorHex))
-          .frame(width: 10, height: 10)
+          .frame(width: 16, height: 16)
         Text(folder.name)
-          .font(.subheadline)
+          .font(.body)
           .foregroundStyle(.secondary)
-        Spacer()
+          .lineLimit(1)
+        Spacer(minLength: 8)
         Image(systemName: "chevron.right")
           .rotationEffect(.degrees(isCollapsed ? 0 : 90))
           .foregroundStyle(.secondary)
-          .font(.system(size: 11, weight: .semibold))
+          .font(.system(size: 12, weight: .semibold))
+          .frame(width: 16, height: 16)
       }
+      .frame(minHeight: 28)
       .contextMenu {
         if folder.isPinned {
           Button(action: { store.setFolderPinned(id: folder.id, pinned: false) }) {
@@ -256,10 +259,11 @@ private struct TabRow: View {
 
   var body: some View {
     Button(action: select) {
-      HStack(spacing: 8) {
+      HStack(alignment: .center, spacing: 8) {
         faviconView
 
         Text(tab.title.isEmpty ? tab.urlString : tab.title)
+          .font(.body)
           .lineLimit(1)
           .foregroundStyle(.primary)
 
