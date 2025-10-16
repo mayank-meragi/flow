@@ -41,27 +41,30 @@ struct BrowserWebView: NSViewRepresentable {
         let view = tab.webView
         view.navigationDelegate = context.coordinator
         view.uiDelegate = context.coordinator
-        // Inject Cmd+Click handler script
-        let js = """
-        (function(){
-          if (window.__flowCmdClickInstalled) return; window.__flowCmdClickInstalled = true;
-          document.addEventListener('click', function(e){
-            try {
-              let el = e.target;
-              while (el && el.tagName !== 'A') el = el.parentElement;
-              if (!el || !el.href) return;
-              if (e.metaKey) {
-                window.webkit.messageHandlers.flowOpenInNewTab.postMessage(el.href);
-                e.preventDefault();
-                e.stopPropagation();
-              }
-            } catch (err) { /* swallow */ }
-          }, true);
-        })();
-        """
-        let script = WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: false)
-        view.configuration.userContentController.addUserScript(script)
-        view.configuration.userContentController.add(context.coordinator, name: "flowOpenInNewTab")
+        // Inject Cmd+Click handler script and message bridge only once per tab/webview
+        if tab.didInstallCmdClickBridge == false {
+            let js = """
+            (function(){
+              if (window.__flowCmdClickInstalled) return; window.__flowCmdClickInstalled = true;
+              document.addEventListener('click', function(e){
+                try {
+                  let el = e.target;
+                  while (el && el.tagName !== 'A') el = el.parentElement;
+                  if (!el || !el.href) return;
+                  if (e.metaKey) {
+                    window.webkit.messageHandlers.flowOpenInNewTab.postMessage(el.href);
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }
+                } catch (err) { /* swallow */ }
+              }, true);
+            })();
+            """
+            let script = WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+            view.configuration.userContentController.addUserScript(script)
+            view.configuration.userContentController.add(context.coordinator, name: "flowOpenInNewTab")
+            tab.didInstallCmdClickBridge = true
+        }
         return view
     }
 

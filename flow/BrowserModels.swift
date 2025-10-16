@@ -10,9 +10,13 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
     let webView: WKWebView
     // Keep a background delegate so pinned/non-visible tabs still update state
     private var backgroundDelegate: BackgroundDelegate?
+    // Tracks whether we've installed the Cmd+Click JS bridge handler on this WKWebView
+    var didInstallCmdClickBridge: Bool = false
     @Published var title: String
     @Published var urlString: String
     @Published var isPinned: Bool = false
+    // Optional folder assignment
+    @Published var folderID: UUID? = nil
     // Whether content has been loaded at least once in this session
     @Published var isLoaded: Bool = false
     @Published var history: [HistoryEntry] = []
@@ -122,6 +126,7 @@ private final class BackgroundDelegate: NSObject, WKNavigationDelegate, WKUIDele
 final class BrowserStore: ObservableObject {
     @Published var tabs: [BrowserTab] = []
     @Published var activeTabID: UUID?
+    @Published var folders: [TabFolder] = []
     private var cancellables: Set<AnyCancellable> = []
 
     var active: BrowserTab? { tabs.first { $0.id == activeTabID } }
@@ -133,6 +138,7 @@ final class BrowserStore: ObservableObject {
         } else {
             tabs = []
             activeTabID = nil
+            folders = []
         }
         // Save when the active tab changes
         $activeTabID
@@ -215,6 +221,42 @@ struct HistoryEntry: Identifiable, Hashable, Codable {
     let date: Date
 }
 
+// MARK: - Folders
+
+struct TabFolder: Identifiable, Hashable, Codable {
+    let id: UUID
+    var name: String
+    var colorHex: String // e.g. "#FF6B6B"
+    var isPinned: Bool
+    var isCollapsed: Bool
+
+    init(id: UUID, name: String, colorHex: String, isPinned: Bool, isCollapsed: Bool = false) {
+        self.id = id
+        self.name = name
+        self.colorHex = colorHex
+        self.isPinned = isPinned
+        self.isCollapsed = isCollapsed
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, name, colorHex, isPinned, isCollapsed }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        colorHex = try c.decode(String.self, forKey: .colorHex)
+        isPinned = try c.decode(Bool.self, forKey: .isPinned)
+        isCollapsed = try c.decodeIfPresent(Bool.self, forKey: .isCollapsed) ?? false
+    }
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(colorHex, forKey: .colorHex)
+        try c.encode(isPinned, forKey: .isPinned)
+        try c.encode(isCollapsed, forKey: .isCollapsed)
+    }
+}
+
 // MARK: - Persistence
 
 private struct PersistedTab: Codable {
@@ -223,11 +265,13 @@ private struct PersistedTab: Codable {
     let title: String
     let history: [HistoryEntry]
     let isPinned: Bool
+    let folderID: UUID?
 }
 
 private struct PersistedState: Codable {
     let tabs: [PersistedTab]
     let activeTabID: UUID?
+    let folders: [TabFolder]? // optional for backward compatibility
 }
 
 extension BrowserStore {
@@ -258,9 +302,9 @@ extension BrowserStore {
         enc.outputFormatting = [.prettyPrinted]
         enc.dateEncodingStrategy = .iso8601
         let tabsPayload: [PersistedTab] = tabs.map { t in
-            PersistedTab(id: t.id, urlString: t.urlString, title: t.title, history: t.history, isPinned: t.isPinned)
+            PersistedTab(id: t.id, urlString: t.urlString, title: t.title, history: t.history, isPinned: t.isPinned, folderID: t.folderID)
         }
-        let payload = PersistedState(tabs: tabsPayload, activeTabID: activeTabID)
+        let payload = PersistedState(tabs: tabsPayload, activeTabID: activeTabID, folders: folders)
         if let data = try? enc.encode(payload) {
             try? data.write(to: url, options: .atomic)
         }
@@ -273,11 +317,13 @@ extension BrowserStore {
             t.history = s.history
             t.title = s.title
             t.isPinned = s.isPinned
+            t.folderID = s.folderID
             // Force identity to match persisted ID for active selection
             // Note: BrowserTab.id is let, so we can't override it; instead, we select by index below.
             created.append(t)
         }
         tabs = created
+        folders = state.folders ?? []
         // Try to match active by URL fallback if IDs differ
         if let aid = state.activeTabID, let idx = state.tabs.firstIndex(where: { $0.id == aid }), tabs.indices.contains(idx) {
             activeTabID = tabs[idx].id
@@ -313,5 +359,53 @@ extension BrowserStore {
                 self?.saveState()
             }
             .store(in: &cancellables)
+        tab.$folderID
+            .sink { [weak self] _ in
+                // Publish to update folder groupings immediately
+                if let self = self { self.tabs = self.tabs }
+                self?.saveState()
+            }
+            .store(in: &cancellables)
+    }
+}
+
+// MARK: - Folder Management API
+
+extension BrowserStore {
+    func createFolder(name: String, colorHex: String, pinned: Bool = false) -> UUID {
+        let folder = TabFolder(id: UUID(), name: name, colorHex: colorHex, isPinned: pinned, isCollapsed: false)
+        folders.append(folder)
+        saveState()
+        return folder.id
+    }
+
+    func renameFolder(id: UUID, to newName: String) {
+        guard let idx = folders.firstIndex(where: { $0.id == id }) else { return }
+        folders[idx].name = newName
+        saveState()
+    }
+
+    func setFolderPinned(id: UUID, pinned: Bool) {
+        guard let idx = folders.firstIndex(where: { $0.id == id }) else { return }
+        folders[idx].isPinned = pinned
+        saveState()
+    }
+
+    func setFolderCollapsed(id: UUID, collapsed: Bool) {
+        guard let idx = folders.firstIndex(where: { $0.id == id }) else { return }
+        folders[idx].isCollapsed = collapsed
+        saveState()
+    }
+
+    func toggleFolderCollapsed(id: UUID) {
+        guard let idx = folders.firstIndex(where: { $0.id == id }) else { return }
+        folders[idx].isCollapsed.toggle()
+        saveState()
+    }
+
+    func assign(tabID: UUID, toFolder folderID: UUID?) {
+        guard let idx = tabs.firstIndex(where: { $0.id == tabID }) else { return }
+        tabs[idx].folderID = folderID
+        saveState()
     }
 }
