@@ -5,7 +5,6 @@ import AppKit
 #endif
 
 struct ContentView: View {
-    @State private var mode: SidebarMode = .fixed
     @EnvironmentObject private var store: BrowserStore
     @EnvironmentObject private var appState: AppState
     @State private var hoverEdge = false
@@ -32,8 +31,8 @@ struct ContentView: View {
                 leftWidth: $sidebarWidth,
                 rightWidth: $panelWidth,
                 isLeftVisible: Binding(
-                    get: { mode == .fixed },
-                    set: { mode = $0 ? .fixed : .floating }
+                    get: { appState.sidebarMode == .fixed },
+                    set: { appState.sidebarMode = $0 ? .fixed : .floating }
                 ),
                 isRightVisible: $appState.isRightPanelVisible,
                 leftMin: sidebarMinWidth,
@@ -43,7 +42,7 @@ struct ContentView: View {
                 handleWidth: 8,
                 animationDuration: 0.45
             ) {
-                SidebarView(mode: $mode)
+                SidebarView(mode: $appState.sidebarMode)
                     .environmentObject(store)
                     .padding([.top, .bottom, .leading], contentPadding)
                     .padding(.trailing, contentPadding/2)
@@ -65,8 +64,8 @@ struct ContentView: View {
             }
 
             // Floating sidebar overlay when in floating mode
-            if mode == .floating && showFloatingSidebar {
-                SidebarView(mode: $mode)
+            if appState.sidebarMode == .floating && showFloatingSidebar {
+                SidebarView(mode: $appState.sidebarMode)
                     .environmentObject(store)
                     .frame(width: sidebarWidth)
                     .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 0)
@@ -79,7 +78,7 @@ struct ContentView: View {
             }
 
             // Hot zone at the leading edge to reveal the sidebar (floating mode only)
-            if mode == .floating {
+            if appState.sidebarMode == .floating {
                 Color.clear
                     .contentShape(Rectangle())
                     .frame(width: 8)
@@ -89,7 +88,7 @@ struct ContentView: View {
                     .ignoresSafeArea(.all, edges: .top)
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: mode)
+        .animation(.easeInOut(duration: 0.25), value: appState.sidebarMode)
         .animation(.easeInOut(duration: 0.2), value: showFloatingSidebar)
         // Overlay: Command Bar centered over everything
         .overlay(alignment: .center) {
@@ -124,7 +123,7 @@ struct ContentView: View {
     }
 
     private var showFloatingSidebar: Bool {
-        mode == .floating && (hoverEdge || hoverSidebar)
+        appState.sidebarMode == .floating && (hoverEdge || hoverSidebar)
     }
 
     // Extracted main content view for reuse inside splits
@@ -136,7 +135,7 @@ struct ContentView: View {
                     .id(active.id)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .shadow(radius: 5)
-                    .padding(EdgeInsets(top: contentPadding, leading: mode == .fixed ? contentPadding/2 : contentPadding, bottom: contentPadding, trailing: trailingPadding))
+                    .padding(EdgeInsets(top: contentPadding, leading: appState.sidebarMode == .fixed ? contentPadding/2 : contentPadding, bottom: contentPadding, trailing: trailingPadding))
             } else {
                 Color.clear
             }

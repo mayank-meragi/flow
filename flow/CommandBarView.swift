@@ -6,6 +6,7 @@ struct CommandBarView: View {
     @State private var query: String = ""
     // Focus handled by KeyHandlingTextField
     @EnvironmentObject private var store: BrowserStore
+    @EnvironmentObject private var appState: AppState
     @State private var selectionIndex: Int = 0
     private let maxVisibleRows: Int = 5
     private let estimatedRowHeight: CGFloat = 46
@@ -108,13 +109,18 @@ struct CommandBarView: View {
         let canBack = store.canGoBack
         let canFwd = store.canGoForward
         let activeHost = store.active?.webView.url?.host ?? ""
+        let sidebarTitle = (appState.sidebarMode == .fixed) ? "Hide Sidebar" : "Show Sidebar"
+        let rightPanelOpen = appState.isRightPanelVisible
         return [
             CommandItem(title: "Close Tab", subtitle: nil, isEnabled: store.active != nil, action: {
                 if let id = store.active?.id { store.close(tabID: id) }
             }, keywords: ["close", "tab", "delete"]),
             CommandItem(title: "Reload", subtitle: activeHost, isEnabled: store.active != nil, action: { store.reload() }, keywords: ["reload", "refresh", "cmd r"]),
             CommandItem(title: "Back", subtitle: activeHost, isEnabled: canBack, action: { store.goBack() }, keywords: ["back", "previous", "history"]),
-            CommandItem(title: "Forward", subtitle: activeHost, isEnabled: canFwd, action: { store.goForward() }, keywords: ["forward", "next", "history"])
+            CommandItem(title: "Forward", subtitle: activeHost, isEnabled: canFwd, action: { store.goForward() }, keywords: ["forward", "next", "history"]),
+            CommandItem(title: "Show History", subtitle: nil, isEnabled: true, action: { appState.openRightPanel(.history) }, keywords: ["history", "right panel", "clock"]),
+            CommandItem(title: sidebarTitle, subtitle: nil, isEnabled: true, action: { appState.toggleSidebarMode() }, keywords: ["sidebar", "toggle", "show", "hide"]),
+            CommandItem(title: "Close Right Panel", subtitle: nil, isEnabled: rightPanelOpen, action: { appState.closeRightPanel() }, keywords: ["right panel", "close", "hide"])
         ]
     }
 
@@ -155,6 +161,10 @@ struct CommandBarView: View {
         case "Reload": return "arrow.clockwise"
         case "Back": return "chevron.left"
         case "Forward": return "chevron.right"
+        case "Show History": return "clock"
+        case "Hide Sidebar": return "sidebar.left"
+        case "Show Sidebar": return "sidebar.left"
+        case "Close Right Panel": return "xmark.square"
         default: return "rectangle.and.text.magnifyingglass"
         }
     }

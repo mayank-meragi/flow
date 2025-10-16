@@ -12,6 +12,7 @@ final class AppState: ObservableObject {
     @Published var tabSwitcherSelectedIndex: Int = 0
     @Published var rightPanelItem: RightPanelContent? = nil
     @Published var isRightPanelVisible: Bool = false
+    @Published var sidebarMode: SidebarMode = .fixed
 
     // Commit target when ctrl is released
     var onTabSwitcherCommit: ((Int) -> Void)?
@@ -53,5 +54,10 @@ final class AppState: ObservableObject {
     func closeRightPanel() {
         isRightPanelVisible = false
         rightPanelItem = nil
+    }
+
+    // Sidebar control
+    func toggleSidebarMode() {
+        sidebarMode = (sidebarMode == .fixed) ? .floating : .fixed
     }
 }
