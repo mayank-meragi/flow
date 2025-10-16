@@ -51,10 +51,11 @@ struct Manifest: Codable {
     let manifest_version: Int
     let description: String?
     let icons: IconSet?
-    let action: Action?  // This will be populated from either "action" or "browser_action"
+    let action: Action?
+    let options_page: String?
 
     enum CodingKeys: String, CodingKey {
-        case name, version, manifest_version, description, icons
+        case name, version, manifest_version, description, icons, options_page
         case action  // MV3 key
         case browser_action  // MV2 key
     }
@@ -66,6 +67,7 @@ struct Manifest: Codable {
         manifest_version = try container.decode(Int.self, forKey: .manifest_version)
         description = try container.decodeIfPresent(String.self, forKey: .description)
         icons = try container.decodeIfPresent(IconSet.self, forKey: .icons)
+        options_page = try container.decodeIfPresent(String.self, forKey: .options_page)
 
         // Handle action vs browser_action
         if let actionValue = try? container.decodeIfPresent(Action.self, forKey: .action) {
@@ -86,9 +88,7 @@ struct Manifest: Codable {
         try container.encode(manifest_version, forKey: .manifest_version)
         try container.encodeIfPresent(description, forKey: .description)
         try container.encodeIfPresent(icons, forKey: .icons)
-
-        // When encoding, we'll just use the 'action' key for simplicity,
-        // as it's the modern standard.
+        try container.encodeIfPresent(options_page, forKey: .options_page)
         try container.encodeIfPresent(action, forKey: .action)
     }
 }

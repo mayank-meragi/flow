@@ -3,6 +3,8 @@ import WebKit
 
 struct ExtensionToolbarView: View {
     @EnvironmentObject var extensionManager: ExtensionManager
+    @EnvironmentObject var appState: AppState
+    @EnvironmentObject var store: BrowserStore
     @State private var showingPopoverFor: String?  // Extension ID
 
     var body: some View {
@@ -23,6 +25,23 @@ struct ExtensionToolbarView: View {
                     ), arrowEdge: .bottom
                 ) {
                     PopoverContent(extension: ext)
+                }
+                .contextMenu {
+                    if let optionsPage = ext.manifest.options_page {
+                        Button("Options") {
+                            let optionsURL = ext.directoryURL.appendingPathComponent(optionsPage)
+                            store.newTab(url: optionsURL.absoluteString)
+                        }
+                    }
+                    Button("Manage extension") {
+                        appState.openRightPanel(.extensions)
+                    }
+                    Divider()
+                    Button(role: .destructive) {
+                        extensionManager.remove(id: ext.id)
+                    } label: {
+                        Label("Remove", systemImage: "trash")
+                    }
                 }
             }
         }

@@ -40,22 +40,22 @@ The goal of this phase is to get a basic, non-interactive extension (either MV2 
 The goal of this phase is to support a core set of APIs that are common to both MV2 and MV3, enabling a wide range of functional extensions.
 
 ### 1. UI & Developer Features
-- [ ] **Enhanced Developer Mode:**
-    - [ ] In the dashboard, display extension IDs and other metadata for developers.
-- [ ] **Options Page Support:**
-    - [ ] Parse `options_page` and `options_ui` from the manifest.
-    - [ ] Add a button to the dashboard to open the options page.
-- [ ] **Toolbar Icon Context Menu:**
-    - [ ] Implement a right-click context menu on extension action icons.
-    - [ ] Include items like "Options", "Manage extension", and "Remove extension".
+- [x] **Enhanced Developer Mode:**
+    - [x] In the dashboard, display extension IDs and other metadata for developers.
+- [x] **Options Page Support:**
+    - [x] Parse `options_page` and `options_ui` from the manifest.
+    - [x] Add a button to the dashboard to open the options page.
+- [x] **Toolbar Icon Context Menu:**
+    - [x] Implement a right-click context menu on extension action icons.
+    - [x] Include items like "Options", "Manage extension", and "Remove extension".
 
 ### 2. Core Functionality APIs
 - [ ] **Permissions API:**
     - [ ] Parse `permissions` and `host_permissions` keys in the manifest.
     - [ ] Create a UI for prompting the user to grant permissions.
     - [ ] Implement `permissions.request`, `permissions.contains`, and `permissions.getAll`.
-- [ ] **Storage API:**
-    - [ ] Implement `storage.local` and `storage.session`.
+- [x] **Storage API:**
+    - [x] Implement `storage.local` and `storage.session`.
     - [ ] Implement the `storage.onChanged` event.
 - [ ] **Alarms API:**
     - [ ] Implement `alarms.create`, `alarms.get`, `alarms.getAll`, `alarms.clear`.

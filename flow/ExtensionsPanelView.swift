@@ -25,7 +25,7 @@ struct ExtensionsPanelView: View {
                 } else {
                     VStack(alignment: .leading, spacing: 10) {
                         ForEach(Array(extensionManager.extensions.values), id: \.id) { ext in
-                            ExtensionRowView(extension: ext)
+                            ExtensionRowView(extension: ext, isDeveloperModeOn: isDeveloperModeOn)
                         }
                     }
                     .padding()
@@ -51,7 +51,9 @@ struct ExtensionsPanelView: View {
 
 struct ExtensionRowView: View {
     @EnvironmentObject var extensionManager: ExtensionManager
+    @EnvironmentObject var store: BrowserStore
     let `extension`: Extension
+    let isDeveloperModeOn: Bool
     @State private var isEnabled: Bool = true
 
     var body: some View {
@@ -64,6 +66,12 @@ struct ExtensionRowView: View {
                 Text("Version \(`extension`.manifest.version ?? "Unknown")")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+                if isDeveloperModeOn {
+                    Text("ID: \(`extension`.id)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
             }
 
             Spacer()
@@ -74,6 +82,12 @@ struct ExtensionRowView: View {
         .background(Color(NSColor.windowBackgroundColor))
         .cornerRadius(8)
         .contextMenu {
+            if let optionsPage = `extension`.manifest.options_page {
+                Button("Options") {
+                    let optionsURL = `extension`.directoryURL.appendingPathComponent(optionsPage)
+                    store.newTab(url: optionsURL.absoluteString)
+                }
+            }
             Button(role: .destructive) {
                 extensionManager.remove(id: `extension`.id)
             } label: {
