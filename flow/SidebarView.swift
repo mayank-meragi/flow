@@ -56,15 +56,8 @@ struct SidebarView: View {
 
         // URL bar
         HStack(spacing: 8) {
-          TextField("Enter URL", text: Binding(
-            get: { store.active?.urlString ?? "" },
-            set: { store.active?.urlString = $0 }
-          ), onCommit: {
-            store.active?.loadCurrentURL()
-          })
-          .textFieldStyle(.roundedBorder)
-          .disabled(store.active == nil)
-          .foregroundStyle(.primary)
+          URLBarView()
+            .disabled(store.active == nil)
         }
         .padding(.horizontal, 8)
 
