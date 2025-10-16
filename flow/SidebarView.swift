@@ -173,10 +173,6 @@ private struct FolderSection: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
       HStack(spacing: 6) {
-        Image(systemName: "chevron.right")
-          .rotationEffect(.degrees(isCollapsed ? 0 : 90))
-          .foregroundStyle(.secondary)
-          .font(.system(size: 11, weight: .semibold))
         Circle()
           .fill(colorFromHex(folder.colorHex))
           .frame(width: 10, height: 10)
@@ -184,6 +180,10 @@ private struct FolderSection: View {
           .font(.subheadline)
           .foregroundStyle(.secondary)
         Spacer()
+        Image(systemName: "chevron.right")
+          .rotationEffect(.degrees(isCollapsed ? 0 : 90))
+          .foregroundStyle(.secondary)
+          .font(.system(size: 11, weight: .semibold))
       }
       .contextMenu {
         if folder.isPinned {
