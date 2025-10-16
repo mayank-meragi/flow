@@ -294,6 +294,8 @@ extension BrowserStore {
             .sink { [weak self, weak tab] newVal in
                 // Persist pin changes and ensure pinned tabs are loaded
                 if newVal { tab?.ensureLoaded() }
+                // Force a publish on tabs so views that derive pinned/others regroup immediately
+                if let self = self { self.tabs = self.tabs }
                 self?.saveState()
             }
             .store(in: &cancellables)

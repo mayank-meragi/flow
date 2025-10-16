@@ -150,6 +150,7 @@ private struct TabRow: View {
   let isActive: Bool
   let select: () -> Void
   let close: () -> Void
+  @State private var isHovering: Bool = false
 
   var body: some View {
     Button(action: select) {
@@ -161,19 +162,28 @@ private struct TabRow: View {
           .foregroundStyle(.primary)
 
         Spacer()
-
-        Button(role: .destructive, action: close) {
-          Image(systemName: "xmark.circle.fill")
-            .foregroundStyle(.secondary)
+        if isHovering {
+          Button(role: .destructive, action: close) {
+            Image(systemName: "xmark.circle")
+              .foregroundStyle(.secondary)
+          }
+          .buttonStyle(.plain)
+          .transition(.opacity)
         }
-        .buttonStyle(.plain)
       }
       .padding(8)
       .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+      .background(
+        (isHovering && !isActive) ? Color.accentColor.opacity(0.10) : Color.clear,
+        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+      )
     }
     .buttonStyle(.plain)
     // Dull sleeping (not-yet-loaded) tabs slightly when inactive
     .opacity(tab.isLoaded || isActive ? 1.0 : 0.6)
+    .onHover { hovering in
+      withAnimation(.easeInOut(duration: 0.15)) { isHovering = hovering }
+    }
     .contextMenu {
       if tab.isPinned {
         Button(action: { tab.isPinned = false }) {
