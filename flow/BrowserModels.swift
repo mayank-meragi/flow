@@ -39,6 +39,10 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
 
     // Update metadata (title + favicon) after navigation finishes
     func updateMetadata(from webView: WKWebView) {
+        // Keep URL bar in sync with actual page URL
+        if let current = webView.url {
+            self.urlString = URLManager.displayString(from: current)
+        }
         self.title = webView.title ?? self.urlString
         if let currentURL = webView.url?.absoluteString, !currentURL.isEmpty {
             appendHistoryIfNeeded(urlString: currentURL, title: self.title)
@@ -78,9 +82,9 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
 
     func loadCurrentURL() {
         let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty, let url = URL(string: BrowserTab.ensureScheme(trimmed)) {
-            webView.load(URLRequest(url: url))
-        }
+        guard !trimmed.isEmpty else { return }
+        guard let url = URLManager.resolve(input: trimmed) else { return }
+        webView.load(URLRequest(url: url))
     }
 
     // Load if not already loaded
@@ -96,10 +100,8 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
         history.append(HistoryEntry(urlString: urlString, title: title, date: Date()))
     }
 
-    static func ensureScheme(_ s: String) -> String {
-        if s.hasPrefix("http://") || s.hasPrefix("https://") { return s }
-        return "https://" + s
-    }
+    // Deprecated: scheme is handled by URLManager
+    static func ensureScheme(_ s: String) -> String { s }
 }
 
 // A lightweight delegate that mirrors BrowserWebView.Coordinator's responsibilities.
