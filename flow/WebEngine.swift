@@ -5,7 +5,7 @@ final class WebEngine: ObservableObject {
     static let shared = WebEngine()
 
     let processPool = WKProcessPool()
-    let userContentController = WKUserContentController()
+    let userContentController = WKUserContentController() // legacy (unused by per-webview setup)
     let dataStore: WKWebsiteDataStore = .default()
 
     // Debug toggle: when true, do not attach content rules
@@ -17,7 +17,8 @@ final class WebEngine: ObservableObject {
         let config = WKWebViewConfiguration()
         config.processPool = processPool
         config.websiteDataStore = dataStore
-        config.userContentController = userContentController
+        // Use a fresh content controller per webview so we can attach per-tab handlers
+        config.userContentController = WKUserContentController()
         // Ensure modern desktop behavior and JS enabled
         let pagePrefs = WKWebpagePreferences()
         pagePrefs.allowsContentJavaScript = true

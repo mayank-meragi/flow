@@ -20,6 +20,16 @@ struct AppCommands: Commands {
                 .keyboardShortcut(.tab, modifiers: [.control])
             Button("Previous Tab (Switcher)") { tabSwitcherPrevious() }
                 .keyboardShortcut(.tab, modifiers: [.control, .shift])
+            Divider()
+            Button("Close Current Tab") {
+                if let id = store.active?.id { store.close(tabID: id) }
+            }
+            .keyboardShortcut("w", modifiers: [.command])
+        }
+
+        CommandMenu("Navigation") {
+            Button("Focus URL Bar") { appState.focusURLBar() }
+                .keyboardShortcut("l", modifiers: [.command])
         }
 
         CommandMenu("Debug") {

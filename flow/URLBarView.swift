@@ -3,6 +3,7 @@ import WebKit
 
 struct URLBarView: View {
     @EnvironmentObject private var store: BrowserStore
+    @EnvironmentObject private var appState: AppState
     @State private var isEditing: Bool = false
     @State private var input: String = ""
 
@@ -18,6 +19,10 @@ struct URLBarView: View {
         .onChange(of: store.active?.id) { _ in syncFromActive() }
         .onChange(of: store.active?.urlString ?? "") { _ in
             if !isEditing { syncFromActive() }
+        }
+        .onChange(of: appState.focusURLBarTick) { _ in
+            input = store.active?.urlString ?? ""
+            isEditing = true
         }
     }
 
@@ -89,4 +94,3 @@ struct URLBarView: View {
         isEditing = false
     }
 }
-

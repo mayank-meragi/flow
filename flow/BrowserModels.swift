@@ -152,6 +152,17 @@ final class BrowserStore: ObservableObject {
         return t.id
     }
 
+    // Open a new tab without making it active (background)
+    @discardableResult
+    func newBackgroundTab(url: String) -> UUID {
+        let t = BrowserTab(urlString: url)
+        attachObservers(to: t)
+        tabs.append(t)
+        t.ensureLoaded()
+        saveState()
+        return t.id
+    }
+
     func close(tabID: UUID) {
         if let idx = tabs.firstIndex(where: { $0.id == tabID }) {
             let removed = tabs.remove(at: idx)

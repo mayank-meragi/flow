@@ -12,6 +12,8 @@ final class AppState: ObservableObject {
     @Published var tabSwitcherSelectedIndex: Int = 0
     @Published var rightPanelItem: RightPanelContent? = nil
     @Published var isRightPanelVisible: Bool = false
+    // Triggers focusing the URL bar when incremented
+    @Published var focusURLBarTick: Int = 0
     @Published var sidebarMode: SidebarMode = .fixed
 
     // Commit target when ctrl is released
@@ -60,4 +62,7 @@ final class AppState: ObservableObject {
     func toggleSidebarMode() {
         sidebarMode = (sidebarMode == .fixed) ? .floating : .fixed
     }
+
+    // Request URL bar focus
+    func focusURLBar() { focusURLBarTick &+= 1 }
 }
