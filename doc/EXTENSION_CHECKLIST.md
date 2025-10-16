@@ -2,9 +2,9 @@
 
 This document breaks down the work required to implement WebExtensions support, based on our architecture design. The work is grouped into phases: Proof of Concept (POC), Minimum Viable Product (MVP), and Future Work.
 
-## Proof of Concept (POC): Load and Display a Simple MV3 Extension
+## Proof of Concept (POC): Load and Display a Simple Extension (MV2 or MV3)
 
-The goal of this phase is to get a basic, non-interactive MV3 extension with a popup action to load and be displayed in the UI.
+The goal of this phase is to get a basic, non-interactive extension (either MV2 or MV3) with a popup action to load and be displayed in the UI.
 
 ### 1. Core Architecture & Protocols
 - [x] Create `Extension.swift` with the `Extension` protocol.
@@ -15,11 +15,11 @@ The goal of this phase is to get a basic, non-interactive MV3 extension with a p
 
 ### 2. Manifest Parsing & Extension Loading
 - [x] Create `Manifest.swift` to contain all `Codable` models for `manifest.json`.
-- [x] Define a `ManifestV3` struct in `Manifest.swift` for keys: `name`, `version`, `manifest_version`, `action`, `description`, `icons`.
+- [x] Define `Manifest` structs for keys common to MV2 and MV3.
 - [x] Create `ExtensionManager.swift`.
 - [x] Implement logic in `ExtensionManager` to find and read extension files from a designated directory.
 - [x] Implement JSON parsing of `manifest.json` in `ExtensionManager`.
-- [x] Implement factory logic in `ExtensionManager` to instantiate an `MV3Extension` when `manifest_version` is `3`.
+- [x] Implement factory logic in `ExtensionManager` to instantiate `MV3Extension` or `MV2Extension` based on `manifest_version`.
 
 ### 3. Extension Management & UI
 - [x] **Extension Dashboard (Right Panel):**
@@ -32,14 +32,14 @@ The goal of this phase is to get a basic, non-interactive MV3 extension with a p
     - [x] Add a button to remove (uninstall) an extension.
 - [x] **Action Popup:**
     - [x] Create `ExtensionToolbarView.swift` to display icons for enabled extensions.
-    - [x] Render icons from the `action.default_icon` manifest key.
-    - [x] Implement `action.onClicked` handling to open the `action.default_popup` HTML file in a popover.
+    - [x] Render icons from the `action` or `browser_action` manifest keys.
+    - [x] Implement popup handling for `action.default_popup` or `browser_action.default_popup`.
 
-## Minimum Viable Product (MVP): A Fully Functional Extension
+## Minimum Viable Product (MVP): Common API Support
 
-The goal of this phase is to support a truly functional extension that can interact with the browser, manage its state, and respond to user actions.
+The goal of this phase is to support a core set of APIs that are common to both MV2 and MV3, enabling a wide range of functional extensions.
 
-### 1. Advanced UI & Developer Features
+### 1. UI & Developer Features
 - [ ] **Enhanced Developer Mode:**
     - [ ] In the dashboard, display extension IDs and other metadata for developers.
 - [ ] **Options Page Support:**
@@ -49,12 +49,7 @@ The goal of this phase is to support a truly functional extension that can inter
     - [ ] Implement a right-click context menu on extension action icons.
     - [ ] Include items like "Options", "Manage extension", and "Remove extension".
 
-### 2. Background Logic & Service Workers (MV3)
-- [ ] Implement a mechanism to run the extension's service worker script in a background `WKWebView` or `JSContext`.
-- [ ] Manage the service worker's lifecycle (startup on event, shutdown when idle).
-- [ ] Wire up events (`runtime.onInstalled`, `alarms.onAlarm`, etc.) to wake the service worker.
-
-### 3. Core APIs & Permissions
+### 2. Core Functionality APIs
 - [ ] **Permissions API:**
     - [ ] Parse `permissions` and `host_permissions` keys in the manifest.
     - [ ] Create a UI for prompting the user to grant permissions.
@@ -68,7 +63,7 @@ The goal of this phase is to support a truly functional extension that can inter
 - [ ] **Internationalization (i18n) API:**
     - [ ] Implement `i18n.getMessage` to support localized strings from the `_locales` folder.
 
-### 4. Browser Interaction APIs
+### 3. Browser Interaction APIs
 - [ ] **Tabs API:**
     - [ ] Implement `tabs.query`, `tabs.create`, `tabs.update`, and `tabs.remove`.
     - [ ] Implement `tabs.onCreated`, `tabs.onUpdated`, and `tabs.onRemoved` events.
@@ -88,30 +83,31 @@ The goal of this phase is to support a truly functional extension that can inter
     - [ ] Implement `notifications.create` to display system notifications.
     - [ ] Handle notification events like `onClicked` and `onClosed`.
 
-### 5. Scripting & Page Interaction
+### 4. Scripting & Page Interaction
 - [ ] **Content Scripts:**
     - [ ] Parse the `content_scripts` array and inject scripts via `WKUserScript`.
-- [ ] **Scripting API (MV3+):**
-    - [ ] Implement `scripting.executeScript`, `scripting.insertCSS`, and `scripting.removeCSS`.
-
-### 6. Networking
-- [ ] **declarativeNetRequest:**
-    - [ ] Parse `rule_resources` and compile them using `WKContentRuleListStore`.
 
 ## Future Work
 
-This includes full MV2 compatibility and expanding the API surface to cover more specialized extension functionalities.
+This includes full support for version-specific features and expanding the API surface.
 
+### 1. Version-Specific Features
+- [ ] **MV3 Support:**
+    - [ ] Implement background service worker lifecycle.
+    - [ ] Implement the `scripting` API (`executeScript`, `insertCSS`, etc.).
+    - [ ] Implement `declarativeNetRequest` by parsing `rule_resources` and compiling them using `WKContentRuleListStore`.
 - [ ] **MV2 Support:**
+    - [ ] Implement the persistent background page environment.
     - [ ] Design and implement `WebRequestAPIHandler.swift` for the blocking `webRequest` API.
-    - [ ] Implement the persistent MV2 background page environment.
-- [ ] **Developer Tools Integration:**
-    - [ ] Implement `devtools_page` manifest key support.
-    - [ ] Allow extensions to create custom panels in the browser's developer tools.
-- [ ] **Expanded API Surface:**
-    - [ ] `storage.sync` (requires backend infrastructure)
-    - [ ] `downloads`
-    - [ ] `history`
-    - [ ] `bookmarks`
-    - [ ] `identity`
-    - [ ] `proxy`
+
+### 2. Expanded API Surface
+- [ ] `storage.sync` (requires backend infrastructure)
+- [ ] `downloads`
+- [ ] `history`
+- [ ] `bookmarks`
+- [ ] `identity`
+- [ ] `proxy`
+
+### 3. Developer Tools
+- [ ] Implement `devtools_page` manifest key support.
+- [ ] Allow extensions to create custom panels in the browser's developer tools.

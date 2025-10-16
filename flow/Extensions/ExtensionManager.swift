@@ -48,13 +48,18 @@ class ExtensionManager: ObservableObject {
             let manifest = try JSONDecoder().decode(Manifest.self, from: data)
 
             // Factory logic
-            if manifest.manifest_version == 3 {
+            switch manifest.manifest_version {
+            case 3:
                 let newExtension = MV3Extension(manifest: manifest, directoryURL: directory)
                 extensions[newExtension.id] = newExtension
                 print("Loaded MV3 extension: \(manifest.name ?? "Unknown")")
-            } else {
+            case 2:
+                let newExtension = MV2Extension(manifest: manifest, directoryURL: directory)
+                extensions[newExtension.id] = newExtension
+                print("Loaded MV2 extension: \(manifest.name ?? "Unknown")")
+            default:
                 print(
-                    "Unsupported manifest version: \(manifest.manifest_version ?? 0) for \(manifest.name ?? "Unknown")"
+                    "Unsupported manifest version: \(manifest.manifest_version) for \(manifest.name ?? "Unknown")"
                 )
             }
         } catch {

@@ -51,7 +51,46 @@ struct Manifest: Codable {
     let manifest_version: Int
     let description: String?
     let icons: IconSet?
-    let action: Action?
+    let action: Action?  // This will be populated from either "action" or "browser_action"
+
+    enum CodingKeys: String, CodingKey {
+        case name, version, manifest_version, description, icons
+        case action  // MV3 key
+        case browser_action  // MV2 key
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        version = try container.decode(String.self, forKey: .version)
+        manifest_version = try container.decode(Int.self, forKey: .manifest_version)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        icons = try container.decodeIfPresent(IconSet.self, forKey: .icons)
+
+        // Handle action vs browser_action
+        if let actionValue = try? container.decodeIfPresent(Action.self, forKey: .action) {
+            action = actionValue
+        } else if let browserActionValue = try? container.decodeIfPresent(
+            Action.self, forKey: .browser_action)
+        {
+            action = browserActionValue
+        } else {
+            action = nil
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encode(version, forKey: .version)
+        try container.encode(manifest_version, forKey: .manifest_version)
+        try container.encodeIfPresent(description, forKey: .description)
+        try container.encodeIfPresent(icons, forKey: .icons)
+
+        // When encoding, we'll just use the 'action' key for simplicity,
+        // as it's the modern standard.
+        try container.encodeIfPresent(action, forKey: .action)
+    }
 }
 
 struct Action: Codable {
