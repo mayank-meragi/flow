@@ -112,8 +112,8 @@ struct CommandBarView: View {
         let sidebarTitle = (appState.sidebarMode == .fixed) ? "Hide Sidebar" : "Show Sidebar"
         let rightPanelOpen = appState.isRightPanelVisible
         return [
-            CommandItem(title: "Close Tab", subtitle: nil, isEnabled: store.active != nil, action: {
-                if let id = store.active?.id { store.close(tabID: id) }
+            CommandItem(title: "Close Tab", subtitle: nil, isEnabled: (store.active != nil) && (store.active?.isPinned == false), action: {
+                if let active = store.active, active.isPinned == false { store.close(tabID: active.id) }
             }, keywords: ["close", "tab", "delete"]),
             CommandItem(title: "Reload", subtitle: activeHost, isEnabled: store.active != nil, action: { store.reload() }, keywords: ["reload", "refresh", "cmd r"]),
             CommandItem(title: "Back", subtitle: activeHost, isEnabled: canBack, action: { store.goBack() }, keywords: ["back", "previous", "history"]),

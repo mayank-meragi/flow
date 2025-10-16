@@ -22,9 +22,12 @@ struct AppCommands: Commands {
                 .keyboardShortcut(.tab, modifiers: [.control, .shift])
             Divider()
             Button("Close Current Tab") {
-                if let id = store.active?.id { store.close(tabID: id) }
+                if let active = store.active, active.isPinned == false {
+                    store.close(tabID: active.id)
+                }
             }
             .keyboardShortcut("w", modifiers: [.command])
+            .disabled(store.active?.isPinned ?? true)
         }
 
         CommandMenu("Navigation") {

@@ -162,7 +162,7 @@ private struct TabRow: View {
           .foregroundStyle(.primary)
 
         Spacer()
-        if isHovering {
+        if isHovering && !tab.isPinned {
           Button(role: .destructive, action: close) {
             Image(systemName: "xmark.circle")
               .foregroundStyle(.secondary)

@@ -165,6 +165,9 @@ final class BrowserStore: ObservableObject {
 
     func close(tabID: UUID) {
         if let idx = tabs.firstIndex(where: { $0.id == tabID }) {
+            let candidate = tabs[idx]
+            // Do not close pinned tabs
+            guard candidate.isPinned == false else { return }
             let removed = tabs.remove(at: idx)
             if removed.id == activeTabID { activeTabID = tabs.first?.id }
             saveState()
