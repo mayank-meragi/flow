@@ -1,7 +1,8 @@
 import SwiftUI
 import WebKit
+
 #if os(macOS)
-import AppKit
+    import AppKit
 #endif
 
 struct ContentView: View {
@@ -11,12 +12,12 @@ struct ContentView: View {
     @State private var hoverSidebar = false
 
     @State private var sidebarWidth: CGFloat = 240
-        private let sidebarMinWidth: CGFloat = 200
-        private let sidebarMaxWidth: CGFloat = 380
+    private let sidebarMinWidth: CGFloat = 200
+    private let sidebarMaxWidth: CGFloat = 380
     @State private var panelWidth: CGFloat = 320
-        private let panelMinWidth: CGFloat = 240
-        private let panelMaxWidth: CGFloat = 520
-    
+    private let panelMinWidth: CGFloat = 240
+    private let panelMaxWidth: CGFloat = 520
+
     let contentPadding: CGFloat = 10
 
     var body: some View {
@@ -45,16 +46,19 @@ struct ContentView: View {
                 SidebarView(mode: $appState.sidebarMode)
                     .environmentObject(store)
                     .padding([.top, .bottom, .leading], contentPadding)
-                    .padding(.trailing, contentPadding/2)
+                    .padding(.trailing, contentPadding / 2)
                     .ignoresSafeArea(.all, edges: .top)
             } main: {
                 mainContentView(trailingPadding: contentPadding / 2)
             } right: {
                 if let item = appState.rightPanelItem, appState.isRightPanelVisible {
-                    RightPanelContainer(title: panelTitle(for: item), isPresented: Binding(
-                        get: { appState.isRightPanelVisible },
-                        set: { newVal in if !newVal { closeRightPanelAnimated() } }
-                    )) {
+                    RightPanelContainer(
+                        title: panelTitle(for: item),
+                        isPresented: Binding(
+                            get: { appState.isRightPanelVisible },
+                            set: { newVal in if !newVal { closeRightPanelAnimated() } }
+                        )
+                    ) {
                         panelContent(for: item)
                     }
                     .ignoresSafeArea(.all, edges: .top)
@@ -102,12 +106,12 @@ struct ContentView: View {
                 TabSwitcherView()
             }
         }
-        
+
         // Always-on modifier key monitor to detect Ctrl release
         .overlay(alignment: .topLeading) {
             ModifierKeyMonitor { flags in
                 #if os(macOS)
-                appState.setControlDown(flags.contains(.control))
+                    appState.setControlDown(flags.contains(.control))
                 #endif
             }
             .frame(width: 0, height: 0)
@@ -135,7 +139,12 @@ struct ContentView: View {
                     .id(active.id)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .shadow(radius: 5)
-                    .padding(EdgeInsets(top: contentPadding, leading: appState.sidebarMode == .fixed ? contentPadding/2 : contentPadding, bottom: contentPadding, trailing: trailingPadding))
+                    .padding(
+                        EdgeInsets(
+                            top: contentPadding,
+                            leading: appState.sidebarMode == .fixed
+                                ? contentPadding / 2 : contentPadding, bottom: contentPadding,
+                            trailing: trailingPadding))
             } else {
                 Color.clear
             }
@@ -148,6 +157,7 @@ struct ContentView: View {
     private func panelTitle(for item: RightPanelContent) -> String {
         switch item {
         case .history: return "History"
+        case .extensions: return "Extensions"
         }
     }
 
@@ -160,6 +170,8 @@ struct ContentView: View {
                 closeRightPanelAnimated()
             }
             .environmentObject(store)
+        case .extensions:
+            ExtensionsPanelView()
         }
     }
 
@@ -174,15 +186,15 @@ struct ContentView: View {
         }
     }
 
-#if os(macOS)
-    private func hideNativeTrafficLights() {
-        if let window = NSApplication.shared.windows.first {
-            window.standardWindowButton(.closeButton)?.isHidden = true
-            window.standardWindowButton(.miniaturizeButton)?.isHidden = true
-            window.standardWindowButton(.zoomButton)?.isHidden = true
+    #if os(macOS)
+        private func hideNativeTrafficLights() {
+            if let window = NSApplication.shared.windows.first {
+                window.standardWindowButton(.closeButton)?.isHidden = true
+                window.standardWindowButton(.miniaturizeButton)?.isHidden = true
+                window.standardWindowButton(.zoomButton)?.isHidden = true
+            }
         }
-    }
-#endif
+    #endif
 }
 
 // (Custom split layout in use; no NSSplitView helpers needed.)

@@ -1,8 +1,9 @@
-import SwiftUI
 import Combine
+import SwiftUI
 
 enum RightPanelContent {
     case history
+    case extensions
     // future: bookmarks, downloads, etc.
 }
 
