@@ -7,6 +7,7 @@ class MV2Extension: Extension {
     let runtime: APIRuntime
     let directoryURL: URL
     let storageManager: StorageManager
+    let permissionManager: PermissionManager
 
     init(manifest: Manifest, directoryURL: URL) {
         let id = UUID().uuidString
@@ -14,7 +15,12 @@ class MV2Extension: Extension {
         self.manifest = manifest
         self.directoryURL = directoryURL
         self.storageManager = StorageManager(extensionId: id)
-        self.runtime = MV2APIRuntime(storageManager: self.storageManager)
+        let allPermissions = (manifest.permissions ?? []) + (manifest.host_permissions ?? [])
+        self.permissionManager = PermissionManager(
+            extensionId: id, initialPermissions: allPermissions)
+        self.runtime = MV2APIRuntime(
+            storageManager: self.storageManager, permissionManager: self.permissionManager,
+            extensionName: manifest.name ?? "Unknown Extension")
     }
 
     func start() {}
@@ -36,6 +42,11 @@ class MV2Extension: Extension {
             guard let area = body["area"] as? String else { return }
 
             runtime.storage.handleCall(area: area, method: method, params: params) { result in
+                self.sendResponse(to: webView, callbackId: callbackId, result: result)
+            }
+
+        case "permissions":
+            runtime.permissions.handleCall(method: method, params: params) { result in
                 self.sendResponse(to: webView, callbackId: callbackId, result: result)
             }
 

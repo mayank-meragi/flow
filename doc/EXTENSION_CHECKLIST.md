@@ -50,10 +50,10 @@ The goal of this phase is to support a core set of APIs that are common to both 
     - [x] Include items like "Options", "Manage extension", and "Remove extension".
 
 ### 2. Core Functionality APIs
-- [ ] **Permissions API:**
-    - [ ] Parse `permissions` and `host_permissions` keys in the manifest.
-    - [ ] Create a UI for prompting the user to grant permissions.
-    - [ ] Implement `permissions.request`, `permissions.contains`, and `permissions.getAll`.
+- [x] **Permissions API:**
+    - [x] Parse `permissions` and `host_permissions` keys in the manifest.
+    - [x] Create a UI for prompting the user to grant permissions.
+    - [x] Implement `permissions.request`, `permissions.contains`, and `permissions.getAll`.
 - [x] **Storage API:**
     - [x] Implement `storage.local` and `storage.session`.
     - [ ] Implement the `storage.onChanged` event.

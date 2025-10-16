@@ -124,6 +124,14 @@ struct ContentView: View {
                 }
             }
         }
+        .sheet(item: $appState.permissionRequest) { request in
+            PermissionRequestView(request: request)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .requestPermission)) { notification in
+            if let request = notification.userInfo?["request"] as? PermissionRequest {
+                appState.permissionRequest = request
+            }
+        }
     }
 
     private var showFloatingSidebar: Bool {

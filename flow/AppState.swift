@@ -1,6 +1,17 @@
 import Combine
 import SwiftUI
 
+extension Notification.Name {
+    static let requestPermission = Notification.Name("requestPermission")
+}
+
+struct PermissionRequest: Identifiable {
+    let id = UUID()
+    let extensionName: String
+    let permissions: [String]
+    let onComplete: (Bool) -> Void
+}
+
 enum RightPanelContent {
     case history
     case extensions
@@ -16,6 +27,7 @@ final class AppState: ObservableObject {
     // Triggers focusing the URL bar when incremented
     @Published var focusURLBarTick: Int = 0
     @Published var sidebarMode: SidebarMode = .fixed
+    @Published var permissionRequest: PermissionRequest? = nil
 
     // Commit target when ctrl is released
     var onTabSwitcherCommit: ((Int) -> Void)?

@@ -53,9 +53,12 @@ struct Manifest: Codable {
     let icons: IconSet?
     let action: Action?
     let options_page: String?
+    let permissions: [String]?
+    let host_permissions: [String]?
 
     enum CodingKeys: String, CodingKey {
-        case name, version, manifest_version, description, icons, options_page
+        case name, version, manifest_version, description, icons, options_page, permissions,
+            host_permissions
         case action  // MV3 key
         case browser_action  // MV2 key
     }
@@ -68,6 +71,8 @@ struct Manifest: Codable {
         description = try container.decodeIfPresent(String.self, forKey: .description)
         icons = try container.decodeIfPresent(IconSet.self, forKey: .icons)
         options_page = try container.decodeIfPresent(String.self, forKey: .options_page)
+        permissions = try container.decodeIfPresent([String].self, forKey: .permissions)
+        host_permissions = try container.decodeIfPresent([String].self, forKey: .host_permissions)
 
         // Handle action vs browser_action
         if let actionValue = try? container.decodeIfPresent(Action.self, forKey: .action) {
@@ -89,6 +94,8 @@ struct Manifest: Codable {
         try container.encodeIfPresent(description, forKey: .description)
         try container.encodeIfPresent(icons, forKey: .icons)
         try container.encodeIfPresent(options_page, forKey: .options_page)
+        try container.encodeIfPresent(permissions, forKey: .permissions)
+        try container.encodeIfPresent(host_permissions, forKey: .host_permissions)
         try container.encodeIfPresent(action, forKey: .action)
     }
 }
