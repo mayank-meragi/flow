@@ -6,6 +6,6 @@
   "action": {
     "default_title": "Hello World",
     "default_popup": "popup.html"
-  }
+  },
+  "permissions": ["tabs"]
 }
-

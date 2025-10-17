@@ -101,7 +101,7 @@ class MV3Extension: Extension {
             resultData = NSNull()
         }
 
-        guard let jsonData = try? JSONSerialization.data(withJSONObject: resultData, options: []),
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: resultData, options: [.fragmentsAllowed]),
             let jsonString = String(data: jsonData, encoding: .utf8)
         else {
             // Handle error: could not serialize result

@@ -90,12 +90,14 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
         let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         guard let url = URLManager.resolve(input: trimmed) else { return }
+        print("[BrowserTab] loadCurrentURL id=\(id) url=\(url)")
         webView.load(URLRequest(url: url))
     }
 
     // Load if not already loaded
     func ensureLoaded() {
         if !isLoaded {
+            print("[BrowserTab] ensureLoaded id=\(id) -> loading")
             loadCurrentURL()
         }
     }
@@ -154,6 +156,7 @@ final class BrowserStore: ObservableObject {
         attachObservers(to: t)
         tabs.append(t)
         activeTabID = t.id
+        print("[Browser] newTab id=\(t.id) url=\(url)")
         // New active tab: ensure it starts loading
         t.ensureLoaded()
         saveState()
@@ -166,6 +169,7 @@ final class BrowserStore: ObservableObject {
         let t = BrowserTab(urlString: url)
         attachObservers(to: t)
         tabs.append(t)
+        print("[Browser] newBackgroundTab id=\(t.id) url=\(url)")
         t.ensureLoaded()
         saveState()
         return t.id
@@ -183,6 +187,7 @@ final class BrowserStore: ObservableObject {
     }
 
     func select(tabID: UUID) {
+        print("[Browser] select tab id=\(tabID)")
         activeTabID = tabID
         // Lazy-load non-pinned tabs when selected
         if let tab = tabs.first(where: { $0.id == tabID }) {
@@ -210,6 +215,7 @@ final class BrowserStore: ObservableObject {
 
     func navigateActive(to urlString: String) {
         guard let active = active else { return }
+        print("[Browser] navigateActive id=\(active.id) url=\(urlString)")
         active.urlString = urlString
         active.loadCurrentURL()
         saveState()

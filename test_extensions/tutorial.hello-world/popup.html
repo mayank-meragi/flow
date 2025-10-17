@@ -12,9 +12,15 @@
   </head>
   <body>
     <h3>Hello, Flow!</h3>
-    <p>This button calls <code>chrome.tabs.create</code>:</p>
-    <button id="open">Open example.com</button>
+    <p>Try common chrome.tabs APIs:</p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap">
+      <button id="create">Create example.com</button>
+      <button id="query">Query active</button>
+      <button id="update">Update active → example.org</button>
+      <button id="reload">Reload active</button>
+      <button id="duplicate">Duplicate active</button>
+      <button id="remove">Remove active</button>
+    </div>
     <script src="popup.js"></script>
   </body>
   </html>
-

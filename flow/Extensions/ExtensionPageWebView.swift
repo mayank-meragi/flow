@@ -26,9 +26,15 @@ struct ExtensionPageWebView: NSViewRepresentable {
             guard message.name == "flowExtension", let body = message.body as? [String: Any] else { return }
             let api = body["api"] as? String ?? ""
             let method = body["method"] as? String ?? ""
+            let cb = body["callbackId"] as? Int
+            print("[ExtBridge][Popup] recv api=\(api) method=\(method) cb=\(String(describing: cb)) body=\(body)")
 
             if api == "tabs" {
-                handleTabsAPI(from: hostedWebView, body: body)
+                guard let cb = body["callbackId"] as? Int, let store = store, let webView = hostedWebView else { return }
+                let params = body["params"] as? [String: Any] ?? [:]
+                let method = body["method"] as? String ?? ""
+                let result = TabsAPIHost.handle(method: method, params: params, store: store) ?? NSNull()
+                sendResponse(to: webView, callbackId: cb, result: result)
                 return
             }
 
@@ -38,33 +44,10 @@ struct ExtensionPageWebView: NSViewRepresentable {
             }
         }
 
-        private func handleTabsAPI(from webView: WKWebView?, body: [String: Any]) {
-            guard let webView = webView else { return }
-            guard let method = body["method"] as? String, let callbackId = body["callbackId"] as? Int else { return }
-
-            switch method {
-            case "create":
-                let params = body["params"] as? [String: Any] ?? [:]
-                let urlString = (params["url"] as? String) ?? "about:blank"
-                let active = (params["active"] as? Bool) ?? true
-                let tabId: UUID? = active ? store?.newTab(url: urlString) : store?.newBackgroundTab(url: urlString)
-                let result: [String: Any] = [
-                    "id": tabId?.uuidString ?? UUID().uuidString,
-                    "url": urlString,
-                    "active": active
-                ]
-                sendResponse(to: webView, callbackId: callbackId, result: result)
-            default:
-                // For unimplemented tabs methods, respond with null
-                if let callbackId = body["callbackId"] as? Int {
-                    sendResponse(to: webView, callbackId: callbackId, result: NSNull())
-                }
-            }
-        }
-
         private func sendResponse(to webView: WKWebView, callbackId: Int, result: Any) {
-            guard let jsonData = try? JSONSerialization.data(withJSONObject: result, options: []),
+            guard let jsonData = try? JSONSerialization.data(withJSONObject: result, options: [.fragmentsAllowed]),
                   let jsonString = String(data: jsonData, encoding: .utf8) else { return }
+            print("[ExtBridge][Popup] sendResponse cb=\(callbackId) json=\(jsonString)")
             let script = "window.flowExtensionCallbacks[\(callbackId)](\(jsonString)); delete window.flowExtensionCallbacks[\(callbackId)];"
             DispatchQueue.main.async { webView.evaluateJavaScript(script, completionHandler: nil) }
         }

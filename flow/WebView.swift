@@ -41,9 +41,11 @@ struct BrowserWebView: NSViewRepresentable {
             switch message.name {
             case "flowOpenInNewTab":
                 if let href = message.body as? String, !href.isEmpty {
+                    print("[ExtBridge][Main] cmd+click open href=\(href)")
                     store?.newBackgroundTab(url: href)
                 }
             case "flowExtension":
+                print("[ExtBridge][Main] recv flowExtension body=\(String(describing: message.body))")
                 handleExtensionMessage(message)
             default:
                 break
@@ -53,38 +55,25 @@ struct BrowserWebView: NSViewRepresentable {
         private func handleExtensionMessage(_ message: WKScriptMessage) {
             guard let body = message.body as? [String: Any] else { return }
             let api = body["api"] as? String ?? ""
+            let method = body["method"] as? String ?? ""
+            print("[ExtBridge][Main] parsed api=\(api) method=\(method)")
             if api == "tabs" {
-                handleTabsAPI(from: tab?.webView, body: body)
+                guard let cb = body["callbackId"] as? Int, let store = store, let webView = tab?.webView else { return }
+                let params = body["params"] as? [String: Any] ?? [:]
+                let result = TabsAPIHost.handle(method: method, params: params, store: store) ?? NSNull()
+                sendResponse(to: webView, callbackId: cb, result: result)
                 return
             }
             // Delegate supported APIs to extension implementation if we can resolve the owning extension
             guard let webView = tab?.webView, let url = webView.url, let ext = findExtension(for: url) else { return }
+            print("[ExtBridge][Main] delegate to extension id=\(ext.id)")
             ext.handleAPICall(from: webView, message: message)
         }
 
-        private func handleTabsAPI(from webView: WKWebView?, body: [String: Any]) {
-            guard let webView = webView else { return }
-            guard let method = body["method"] as? String, let callbackId = body["callbackId"] as? Int else { return }
-            switch method {
-            case "create":
-                let params = body["params"] as? [String: Any] ?? [:]
-                let urlString = (params["url"] as? String) ?? "about:blank"
-                let active = (params["active"] as? Bool) ?? true
-                let tabId: UUID? = active ? store?.newTab(url: urlString) : store?.newBackgroundTab(url: urlString)
-                let result: [String: Any] = [
-                    "id": tabId?.uuidString ?? UUID().uuidString,
-                    "url": urlString,
-                    "active": active
-                ]
-                sendResponse(to: webView, callbackId: callbackId, result: result)
-            default:
-                sendResponse(to: webView, callbackId: callbackId, result: NSNull())
-            }
-        }
-
         private func sendResponse(to webView: WKWebView, callbackId: Int, result: Any) {
-            guard let jsonData = try? JSONSerialization.data(withJSONObject: result, options: []),
+            guard let jsonData = try? JSONSerialization.data(withJSONObject: result, options: [.fragmentsAllowed]),
                   let jsonString = String(data: jsonData, encoding: .utf8) else { return }
+            print("[ExtBridge][Main] sendResponse cb=\(callbackId) json=\(jsonString)")
             let script = "window.flowExtensionCallbacks[\(callbackId)](\(jsonString)); delete window.flowExtensionCallbacks[\(callbackId)];"
             DispatchQueue.main.async { webView.evaluateJavaScript(script, completionHandler: nil) }
         }
