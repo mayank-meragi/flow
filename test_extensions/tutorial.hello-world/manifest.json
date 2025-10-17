@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Hello World Tabs",
+  "version": "1.0.0",
+  "description": "Tutorial extension to test chrome.tabs.create from a popup.",
+  "action": {
+    "default_title": "Hello World",
+    "default_popup": "popup.html"
+  }
+}
+

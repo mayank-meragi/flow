@@ -1,7 +1,7 @@
 import Foundation
 import WebKit
 
-protocol Extension {
+protocol Extension: AnyObject {
     var id: String { get }
     var manifest: Manifest { get }
     var runtime: APIRuntime { get }

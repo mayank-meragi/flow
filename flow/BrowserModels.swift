@@ -12,6 +12,8 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
     private var backgroundDelegate: BackgroundDelegate?
     // Tracks whether we've installed the Cmd+Click JS bridge handler on this WKWebView
     var didInstallCmdClickBridge: Bool = false
+    // Tracks whether we've registered the extension message handler on this WKWebView
+    var didInstallExtensionBridge: Bool = false
     @Published var title: String
     @Published var urlString: String
     @Published var isPinned: Bool = false
