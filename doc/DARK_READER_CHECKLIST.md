@@ -12,11 +12,11 @@ This checklist tracks what’s needed to get the Dark Reader extension working e
     - [x] `inject/proxy.js` at `document_start`, `all_frames: true`, `match_about_blank: true`, world MAIN.
     - [x] `inject/fallback.js` + `inject/index.js` at `document_start`, `all_frames: true`, world ISOLATED.
     - [x] `inject/color-scheme-watcher.js` at `document_idle`, main frame only.
-  - [ ] Enforce `matches`, `run_at`, `all_frames`, `match_about_blank`, and JS world (MAIN/ISOLATED).
+  - [x] Enforce `matches`, `run_at`, `all_frames`, `match_about_blank`, and JS world (MAIN/ISOLATED).
 - [ ] Scripting API
-  - [ ] Implement `chrome.scripting.executeScript` for tab/frame targeted execution (used by background).
+  - [x] Implement `chrome.scripting.executeScript` for tab/frame targeted execution (used by background).
 - [ ] Runtime/tabs messaging bus
-  - [ ] Implement cross‑context messaging: background ↔ popup/options ↔ content.
+  - [x] Implement cross‑context messaging: background ↔ popup/options ↔ content.
   - [ ] `chrome.runtime.sendMessage/connect`, `chrome.runtime.onMessage/onConnect`.
   - [ ] `chrome.tabs.sendMessage` to content scripts.
 - [ ] Tabs events

@@ -40,6 +40,10 @@ struct TabsAPIHost {
             let res = duplicate(params: params, store: store)
             print("[TabsAPI] duplicate -> \(String(describing: res))")
             return res
+        case "sendMessage":
+            let res = sendMessage(params: params, store: store)
+            print("[TabsAPI] sendMessage -> ok")
+            return res
         default:
             print("[TabsAPI] unimplemented method=\(method)")
             return NSNull()
@@ -159,6 +163,17 @@ struct TabsAPIHost {
         let d = toDict(forID: newId, store: store)
         print("[TabsAPI] duplicate created id=\(String(describing: d["id"])) from=\(tab.id)")
         return d
+    }
+
+    static func sendMessage(params: [String: Any], store: BrowserStore) -> Any? {
+        guard let s = params["tabId"] as? String, let (tab, _) = findTab(idString: s, store: store) else { return NSNull() }
+        let message = params["message"] ?? NSNull()
+        // Dispatch message into target tab by firing a CustomEvent listened by the content bridge
+        guard let data = try? JSONSerialization.data(withJSONObject: message, options: [.fragmentsAllowed]),
+              let json = String(data: data, encoding: .utf8) else { return NSNull() }
+        let js = "(function(){ try { var ev=new CustomEvent('__flowRuntimeMessage',{detail: \(json)}); document.dispatchEvent(ev); } catch(e){} })()"
+        DispatchQueue.main.async { tab.webView.evaluateJavaScript(js, completionHandler: nil) }
+        return NSNull()
     }
 
     // MARK: - Helpers

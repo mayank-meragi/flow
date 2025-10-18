@@ -131,6 +131,17 @@ struct ExtensionJSBridge {
         }}
       }};
 
+      // Bridge CustomEvent from native/main-world into this world
+      try {
+        document.addEventListener('__flowRuntimeMessage', function(ev){
+          try {
+            var msg = ev && ev.detail;
+            var ls = window.flowBrowser.runtime.getEventListeners('runtime.onMessage');
+            (ls || []).forEach(function(fn){ try { fn(msg); } catch(e){} });
+          } catch(e) {}
+        });
+      } catch (e) {}
+
       // Ports registry and helpers used by native to dispatch messages
       window.__flowPorts = window.__flowPorts || new Map();
       window.__flowCreatePort = window.__flowCreatePort || function(id, name){

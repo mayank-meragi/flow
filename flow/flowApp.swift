@@ -12,6 +12,8 @@ struct flowApp: App {
                 .environmentObject(store)
                 .environmentObject(extensionManager)
                 .onAppear {
+                    // Provide BrowserStore to scripting host for background execution
+                    ScriptingAPIHost.setStore(store)
                     extensionManager.loadExtensions()
                 }
         }

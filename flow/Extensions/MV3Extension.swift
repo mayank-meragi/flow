@@ -69,6 +69,20 @@ class MV3Extension: Extension {
         }
 
         switch api {
+        case "tabs":
+            // Route background tabs.* calls via host
+            if let store = ScriptingAPIHost.getStore() {
+                if method == "sendMessage" {
+                    let _ = TabsAPIHost.sendMessage(params: params, store: store)
+                    self.sendResponse(to: webView, callbackId: callbackId, result: NSNull())
+                } else {
+                    let result = TabsAPIHost.handle(method: method, params: params, store: store)
+                    self.sendResponse(to: webView, callbackId: callbackId, result: result)
+                }
+            } else {
+                self.sendResponse(to: webView, callbackId: callbackId, result: NSNull())
+            }
+            
         case "storage":
             guard let area = body["area"] as? String else { return }
 
@@ -104,6 +118,15 @@ class MV3Extension: Extension {
         case "runtime":
             self.handleRuntimeCall(from: webView, method: method, params: params) { result in
                 self.sendResponse(to: webView, callbackId: callbackId, result: result)
+            }
+
+        case "scripting":
+            if method == "executeScript" {
+                ScriptingAPIHost.executeScript(ext: self, params: params) { result in
+                    self.sendResponse(to: webView, callbackId: callbackId, result: result)
+                }
+            } else {
+                self.sendResponse(to: webView, callbackId: callbackId, result: NSNull())
             }
 
         default:

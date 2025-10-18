@@ -153,8 +153,36 @@ struct BackgroundJSBridge {
       chrome.action = chrome.action || { setIcon: function(){}, setBadgeText: function(){}, setBadgeBackgroundColor: function(){} };
       chrome.commands = chrome.commands || { getAll: function(cb){ if (cb) try { cb([]); } catch(e) {} }, onCommand: { addListener: function(fn){ window.flowBrowser.runtime._add('commands.onCommand', fn); } } };
       chrome.contextMenus = chrome.contextMenus || { create: function(){}, removeAll: function(cb){ if (cb) try { cb(); } catch(e) {} }, onClicked: { addListener: function(fn){ window.flowBrowser.runtime._add('contextMenus.onClicked', fn); } } };
-      chrome.scripting = chrome.scripting || { executeScript: function(){}, registerContentScripts: function(){}, unregisterContentScripts: function(){}, getRegisteredContentScripts: function(cb){ if (cb) try { cb([]); } catch(e) {} } };
-      chrome.tabs = chrome.tabs || { onRemoved: { addListener: function(fn){ window.flowBrowser.runtime._add('tabs.onRemoved', fn); } }, query: function(q, cb){ if (cb) try { cb([]); } catch(e) {} }, get: function(id, cb){ if (cb) try { cb({id:id, url:'about:blank'}); } catch(e) {} } };
+      chrome.scripting = chrome.scripting || {};
+      chrome.scripting.executeScript = function(options, callback){
+        var target = options && options.target || {};
+        var payload = { api: 'scripting', method: 'executeScript', params: { target: target } };
+        if (options && options.world) payload.world = options.world;
+        if (options && options.injectImmediately != null) payload.injectImmediately = !!options.injectImmediately;
+        if (options && Array.isArray(options.files)) {
+          payload.files = options.files.slice();
+        } else if (options && typeof options.func === 'function') {
+          try {
+            payload.func = String(options.func);
+            if (Array.isArray(options.args)) payload.args = options.args.slice();
+          } catch (e) {
+            // ignore
+          }
+        }
+        return __flowCall(payload).then(function(res){ if (callback) try { callback(res); } catch(e){}; return res; });
+      };
+      chrome.scripting.registerContentScripts = chrome.scripting.registerContentScripts || function(){};
+      chrome.scripting.unregisterContentScripts = chrome.scripting.unregisterContentScripts || function(){};
+      chrome.scripting.getRegisteredContentScripts = chrome.scripting.getRegisteredContentScripts || function(cb){ if (cb) try { cb([]); } catch(e) {} };
+      chrome.tabs = chrome.tabs || {};
+      chrome.tabs.onRemoved = chrome.tabs.onRemoved || { addListener: function(fn){ window.flowBrowser.runtime._add('tabs.onRemoved', fn); } };
+      chrome.tabs.query = chrome.tabs.query || function(q, cb){ __flowCall({ api: 'tabs', method: 'query', params: q || {} }).then(function(res){ if (cb) try { cb(res || []); } catch(e) {} }); };
+      chrome.tabs.get = chrome.tabs.get || function(id, cb){ __flowCall({ api: 'tabs', method: 'get', params: { tabId: id } }).then(function(res){ if (cb) try { cb(res || null); } catch(e) {} }); };
+      chrome.tabs.sendMessage = chrome.tabs.sendMessage || function(tabId, message, options, callback){
+        if (typeof options === 'function') { callback = options; options = {}; }
+        var params = { tabId: String(tabId), message: message || {}, options: options || {} };
+        return __flowCall({ api: 'tabs', method: 'sendMessage', params: params }).then(function(res){ if (callback) try { callback(res); } catch(e){}; return res; });
+      };
       chrome.permissions = chrome.permissions || { onRemoved: { addListener: function(fn){ window.flowBrowser.runtime._add('permissions.onRemoved', fn); } }, contains: function(p, cb){ __flowCall({ api: 'permissions', method: 'contains', params: { permissions: p && p.permissions || [] } }).then(function(res){ if (cb) try { cb(!!res); } catch(e) {} }); } };
     })();
     """

@@ -131,12 +131,16 @@ struct BrowserWebView: NSViewRepresentable {
             view.configuration.userContentController.add(context.coordinator, name: "flowOpenInNewTab")
             tab.didInstallCmdClickBridge = true
         }
-        // Install extension message handler to receive calls from extension options pages
+        // Install extension message handler and content runtime bridge (for content scripts)
         if tab.didInstallExtensionBridge == false {
+            // JS handler for all worlds to reach native
             view.configuration.userContentController.add(context.coordinator, name: "flowExtension")
+            // Provide a minimal chrome.* + runtime messaging shim in page contexts so content scripts can talk to background
+            let extBridge = WKUserScript(source: ExtensionJSBridge.script, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+            view.configuration.userContentController.addUserScript(extBridge)
             tab.didInstallExtensionBridge = true
         }
-        // Install content scripts for MAIN/ISOLATED worlds at document_start where applicable (e.g., Dark Reader)
+        // Install content scripts for MAIN/ISOLATED worlds with proper matches/run_at/all_frames/match_about_blank
         if tab.didInstallContentScripts == false {
             let mgr = extensionManager
             for ext in mgr.extensions.values {
@@ -148,23 +152,41 @@ struct BrowserWebView: NSViewRepresentable {
                             let injectionTime: WKUserScriptInjectionTime
                             if runAt == "document_start" {
                                 injectionTime = .atDocumentStart
-                            } else if runAt == "document_idle" {
+                            } else if runAt == "document_idle" || runAt == "document_end" {
                                 injectionTime = .atDocumentEnd
                             } else {
                                 continue
                             }
                             let allFrames = cs.all_frames ?? false
-                            // For this step we ignore matches/match_about_blank nuance and load globally (matches: <all_urls>)
                             if let files = cs.js {
+                                // Ensure runtime bridge exists in the respective world for content scripts
+                                if world == "ISOLATED" {
+                                    if #available(macOS 11.0, *) {
+                                        let contentWorld = WKContentWorld.world(name: "Flow-Ext-\(ext.id)")
+                                        let bridge = WKUserScript(
+                                            source: ExtensionJSBridge.script,
+                                            injectionTime: .atDocumentStart,
+                                            forMainFrameOnly: !allFrames,
+                                            in: contentWorld
+                                        )
+                                        view.configuration.userContentController.addUserScript(bridge)
+                                    }
+                                }
                                 for file in files {
                                     let scriptURL = mv3.directoryURL.appendingPathComponent(file)
                                     guard let source = try? String(contentsOf: scriptURL, encoding: .utf8) else {
                                         print("[ContentScripts] Failed to read \(scriptURL.path)")
                                         continue
                                     }
+                                    // Wrap source with a URL-matching guard honoring matches and match_about_blank
+                                    let wrapped = buildContentScriptWrappedSource(
+                                        original: source,
+                                        matches: cs.matches,
+                                        matchAboutBlank: cs.match_about_blank ?? false
+                                    )
                                     if world == "MAIN" {
                                         let userScript = WKUserScript(
-                                            source: source,
+                                            source: wrapped,
                                             injectionTime: injectionTime,
                                             forMainFrameOnly: !allFrames
                                         )
@@ -173,7 +195,7 @@ struct BrowserWebView: NSViewRepresentable {
                                         if #available(macOS 11.0, *) {
                                             let contentWorld = WKContentWorld.world(name: "Flow-Ext-\(ext.id)")
                                             let userScript = WKUserScript(
-                                                source: source,
+                                                source: wrapped,
                                                 injectionTime: injectionTime,
                                                 forMainFrameOnly: !allFrames,
                                                 in: contentWorld
@@ -182,7 +204,7 @@ struct BrowserWebView: NSViewRepresentable {
                                         } else {
                                             // Fallback: inject in main world if isolated worlds are unavailable
                                             let userScript = WKUserScript(
-                                                source: source,
+                                                source: wrapped,
                                                 injectionTime: injectionTime,
                                                 forMainFrameOnly: !allFrames
                                             )
@@ -203,4 +225,97 @@ struct BrowserWebView: NSViewRepresentable {
         // If external state updates require loading, do it here.
         // We currently drive loads from SidebarView via BrowserTab.loadCurrentURL().
     }
+}
+
+// MARK: - Content Script URL Matching Wrapper
+
+private func escapeForRegex(_ s: String) -> String {
+    // Escape characters with special meaning in regex
+    let specials: Set<Character> = ["\\", "/", ".", "+", "?", "^", "$", "{", "}", "(", ")", "|", "[", "]"]
+    var out = ""
+    for ch in s {
+        if specials.contains(ch) { out.append("\\") }
+        out.append(ch)
+    }
+    return out
+}
+
+private func matchPatternToRegex(_ pattern: String) -> String? {
+    if pattern == "<all_urls>" {
+        return "^(?:https?|file|ftp|ws|wss):\\/\\/"
+    }
+    // Expect scheme://host/path
+    guard let schemeSplit = pattern.range(of: "://") else { return nil }
+    let schemePart = String(pattern[..<schemeSplit.lowerBound])
+    let rest = String(pattern[schemeSplit.upperBound...])
+
+    let schemeRegex: String
+    if schemePart == "*" {
+        schemeRegex = "(?:http|https)"
+    } else {
+        schemeRegex = escapeForRegex(schemePart)
+    }
+
+    let firstSlash = rest.firstIndex(of: "/")
+    let hostPart = firstSlash.map { String(rest[..<$0]) } ?? rest
+    let pathPart = firstSlash.map { String(rest[$0...]) } ?? "/"
+
+    // Host regex
+    let hostRegex: String
+    if hostPart == "*" {
+        hostRegex = "[^/]*"
+    } else if hostPart.hasPrefix("*.") {
+        let suffix = String(hostPart.dropFirst(2))
+        hostRegex = "(?:[^/]+\\.)?" + escapeForRegex(suffix)
+    } else {
+        hostRegex = escapeForRegex(hostPart)
+    }
+
+    // Path regex ("*" -> ".*")
+    var pr = ""
+    for ch in pathPart {
+        if ch == "*" { pr.append(".*") }
+        else if "\\.+?^${}()|[]".contains(ch) {
+            pr.append("\\\(ch)")
+        } else {
+            pr.append(ch)
+        }
+    }
+    let pathRegex = pr.isEmpty ? "(?:/.*)?" : pr
+
+    return "^" + schemeRegex + ":\\/\\/" + hostRegex + pathRegex
+}
+
+private func buildContentScriptWrappedSource(original: String, matches: [String], matchAboutBlank: Bool) -> String {
+    // Build an array of regex strings from match patterns
+    var regexes: [String] = []
+    for p in matches {
+        if let r = matchPatternToRegex(p) {
+            regexes.append(r)
+        }
+    }
+    // Fallback to block nothing if no valid patterns
+    let regexArrayLiteral = regexes.map { "/\($0)/" }.joined(separator: ", ")
+    let aboutBlankFlag = matchAboutBlank ? "true" : "false"
+    let prefix = """
+    (() => {
+        const __flowMatchRegexes = [\(regexArrayLiteral)];
+        const __flowMatchAboutBlank = \(aboutBlankFlag);
+        function __flowUrlMatches(u) {
+            if (!u) return false;
+            try { const s = String(u); return __flowMatchRegexes.some(r => r.test(s)); } catch { return false; }
+        }
+        (function(){
+            const href = location.href;
+            if (href.startsWith('about:')) {
+                if (!__flowMatchAboutBlank) return;
+                const ref = document.referrer || '';
+                if (!__flowUrlMatches(ref)) return;
+            } else {
+                if (!__flowUrlMatches(href)) return;
+            }
+        })();
+    """
+    let suffix = "\n})();\n"
+    return prefix + original + suffix
 }
