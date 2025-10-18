@@ -62,6 +62,17 @@ struct ExtensionJSBridge {
         __flowCall({ api: 'tabs', method: 'remove', params: params })
           .then(function(res){ if (callback) try { callback(res); } catch(e) {} });
       };
+      window.chrome.tabs.group = function(groupOptions, callback) {
+        try { console.log('[chrome.tabs.group] options=', groupOptions); } catch(e) {}
+        __flowCall({ api: 'tabs', method: 'group', params: groupOptions || {} })
+          .then(function(res){ if (callback) try { callback(res); } catch(e) {} });
+      };
+      window.chrome.tabs.ungroup = function(tabIds, callback) {
+        var params = Array.isArray(tabIds) ? { tabIds: tabIds } : { tabId: tabIds };
+        try { console.log('[chrome.tabs.ungroup] params=', params); } catch(e) {}
+        __flowCall({ api: 'tabs', method: 'ungroup', params: params })
+          .then(function(res){ if (callback) try { callback(res); } catch(e) {} });
+      };
       window.chrome.tabs.reload = function(tabId, reloadProperties, callback) {
         var tId = (typeof tabId === 'number' || typeof tabId === 'string') ? String(tabId) : undefined;
         var props = (typeof tabId === 'object' && tabId !== null) ? tabId : (reloadProperties || {});
@@ -83,6 +94,24 @@ struct ExtensionJSBridge {
       window.chrome.tabs.duplicate = function(tabId, callback) {
         try { console.log('[chrome.tabs.duplicate] tabId=', tabId); } catch(e) {}
         __flowCall({ api: 'tabs', method: 'duplicate', params: { tabId: tabId } })
+          .then(function(res){ if (callback) try { callback(res); } catch(e) {} });
+      };
+
+      // chrome.tabGroups namespace
+      window.chrome.tabGroups = window.chrome.tabGroups || {};
+      window.chrome.tabGroups.query = function(queryInfo, callback) {
+        try { console.log('[chrome.tabGroups.query] info=', queryInfo); } catch(e) {}
+        __flowCall({ api: 'tabGroups', method: 'query', params: queryInfo || {} })
+          .then(function(res){ if (callback) try { callback(res); } catch(e) {} });
+      };
+      window.chrome.tabGroups.update = function(groupId, updateProperties, callback) {
+        try { console.log('[chrome.tabGroups.update] groupId=', groupId, 'props=', updateProperties); } catch(e) {}
+        __flowCall({ api: 'tabGroups', method: 'update', params: { groupId: groupId, updateProperties: updateProperties || {} } })
+          .then(function(res){ if (callback) try { callback(res); } catch(e) {} });
+      };
+      window.chrome.tabGroups.get = function(groupId, callback) {
+        try { console.log('[chrome.tabGroups.get] groupId=', groupId); } catch(e) {}
+        __flowCall({ api: 'tabGroups', method: 'get', params: { groupId: groupId } })
           .then(function(res){ if (callback) try { callback(res); } catch(e) {} });
       };
 

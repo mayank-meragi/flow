@@ -60,7 +60,19 @@ struct BrowserWebView: NSViewRepresentable {
             if api == "tabs" {
                 guard let cb = body["callbackId"] as? Int, let store = store, let webView = tab?.webView else { return }
                 let params = body["params"] as? [String: Any] ?? [:]
-                let result = TabsAPIHost.handle(method: method, params: params, store: store) ?? NSNull()
+                let result: Any?
+                if method == "group" || method == "ungroup" {
+                    result = TabGroupsAPIHost.handle(api: "tabs", method: method, params: params, store: store)
+                } else {
+                    result = TabsAPIHost.handle(method: method, params: params, store: store)
+                }
+                sendResponse(to: webView, callbackId: cb, result: result ?? NSNull())
+                return
+            }
+            if api == "tabGroups" {
+                guard let cb = body["callbackId"] as? Int, let store = store, let webView = tab?.webView else { return }
+                let params = body["params"] as? [String: Any] ?? [:]
+                let result = TabGroupsAPIHost.handle(api: api, method: method, params: params, store: store) ?? NSNull()
                 sendResponse(to: webView, callbackId: cb, result: result)
                 return
             }

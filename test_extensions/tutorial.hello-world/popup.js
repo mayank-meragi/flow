@@ -61,3 +61,50 @@ document.getElementById('remove').addEventListener('click', () => {
     });
   } catch (e) { console.error(e); }
 });
+
+// ---- Tab Groups ----
+document.getElementById('groupActive').addEventListener('click', () => {
+  try {
+    assertTabsAvailable();
+    chrome.tabs.getCurrent((tab) => {
+      if (!tab) { alert('No current tab'); return; }
+      chrome.tabs.group({ tabIds: [tab.id] }, (groupId) => {
+        console.log('Grouped into id:', groupId);
+        // Give it a name for demo
+        chrome.tabGroups.update(groupId, { title: 'Demo Group' }, (g) => console.log('Group updated:', g));
+      });
+    });
+  } catch (e) { console.error(e); }
+});
+
+document.getElementById('ungroupActive').addEventListener('click', () => {
+  try {
+    assertTabsAvailable();
+    chrome.tabs.getCurrent((tab) => {
+      if (!tab) { alert('No current tab'); return; }
+      chrome.tabs.ungroup(tab.id, () => console.log('Ungrouped'));
+    });
+  } catch (e) { console.error(e); }
+});
+
+document.getElementById('listGroups').addEventListener('click', () => {
+  try {
+    assertTabsAvailable();
+    chrome.tabGroups.query({}, (groups) => {
+      console.log('Groups:', groups);
+      alert('Groups: ' + groups.map(g => `${g.id}:${g.title}`).join(', '));
+    });
+  } catch (e) { console.error(e); }
+});
+
+document.getElementById('renameGroup').addEventListener('click', () => {
+  try {
+    assertTabsAvailable();
+    chrome.tabs.getCurrent((tab) => {
+      if (!tab || tab.groupId === -1) { alert('Tab not in a group'); return; }
+      const newName = prompt('New group name:', 'Renamed Group');
+      if (!newName) return;
+      chrome.tabGroups.update(tab.groupId, { title: newName }, (g) => console.log('Renamed:', g));
+    });
+  } catch (e) { console.error(e); }
+});

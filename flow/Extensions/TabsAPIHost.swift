@@ -177,7 +177,7 @@ struct TabsAPIHost {
     }
 
     private static func toDict(tab: BrowserTab, index: Int, store: BrowserStore) -> [String: Any] {
-        return [
+        var d: [String: Any] = [
             "id": tab.id.uuidString,
             "index": index,
             "active": tab.id == store.activeTabID,
@@ -185,5 +185,12 @@ struct TabsAPIHost {
             "url": tab.urlString,
             "title": tab.title
         ]
+        if let fid = tab.folderID {
+            let gid = TabGroupIDMap.shared.groupId(for: fid)
+            d["groupId"] = gid
+        } else {
+            d["groupId"] = -1
+        }
+        return d
     }
 }

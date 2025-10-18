@@ -390,18 +390,22 @@ extension BrowserStore {
     func renameFolder(id: UUID, to newName: String) {
         guard let idx = folders.firstIndex(where: { $0.id == id }) else { return }
         folders[idx].name = newName
+        // Force a publish so Sidebar updates immediately
+        folders = folders
         saveState()
     }
 
     func setFolderPinned(id: UUID, pinned: Bool) {
         guard let idx = folders.firstIndex(where: { $0.id == id }) else { return }
         folders[idx].isPinned = pinned
+        folders = folders
         saveState()
     }
 
     func setFolderCollapsed(id: UUID, collapsed: Bool) {
         guard let idx = folders.firstIndex(where: { $0.id == id }) else { return }
         folders[idx].isCollapsed = collapsed
+        folders = folders
         saveState()
     }
 
