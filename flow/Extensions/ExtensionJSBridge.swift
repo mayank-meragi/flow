@@ -125,6 +125,11 @@ struct ExtensionJSBridge {
       window.flowBrowser = window.flowBrowser || { runtime: {
         _listeners: new Map(),
         getEventListeners: function(name) { return this._listeners.get(name) || []; },
+        _add: function(name, fn) {
+          var arr = this._listeners.get(name) || [];
+          arr.push(fn);
+          this._listeners.set(name, arr);
+        },
         onMessage: { addListener: function(fn){
           var arr = window.flowBrowser.runtime._listeners.get('runtime.onMessage') || [];
           arr.push(fn);
@@ -173,6 +178,14 @@ struct ExtensionJSBridge {
 
       // runtime messaging API
       window.chrome.runtime = window.chrome.runtime || {};
+      // Event surfaces to mirror background behavior
+      window.chrome.runtime.onMessage = window.chrome.runtime.onMessage || { addListener: function(fn){ window.flowBrowser.runtime._add('runtime.onMessage', fn); } };
+      window.chrome.runtime.onConnect = window.chrome.runtime.onConnect || { addListener: function(fn){ window.flowBrowser.runtime._add('runtime.onConnect', fn); } };
+      // Align with background: resolve extension-relative URLs
+      window.chrome.runtime.getURL = window.chrome.runtime.getURL || function(path){
+        try { return new URL(path || '', document.baseURI || location.href).toString(); }
+        catch (e) { return String(path || ''); }
+      };
       window.chrome.runtime.sendMessage = function(message, responseCallback){
         __flowCall({ api: 'runtime', method: 'sendMessage', params: { message: message } })
           .then(function(res){ if (responseCallback) try { responseCallback(res); } catch(e){} });
@@ -182,6 +195,79 @@ struct ExtensionJSBridge {
         var id = String(Math.floor(Math.random()*1e9)) + String(Date.now());
         __flowCall({ api: 'runtime', method: 'connect', params: { name: name, portId: id } });
         return window.__flowCreatePort(id, name);
+      };
+
+      // i18n API (synchronous-friendly shim for getMessage)
+      window.chrome.i18n = window.chrome.i18n || {};
+      window.__flowI18nCache = window.__flowI18nCache || {};
+      window.chrome.i18n.getMessage = function(key, substitutions){
+        // Return cached or empty string immediately to avoid crashes; fetch async to warm cache.
+        try {
+          __flowCall({ api: 'i18n', method: 'getMessage', params: { key: key, substitutions: substitutions || null } })
+            .then(function(res){ try { window.__flowI18nCache[key] = res || ''; } catch(e){} });
+        } catch (e) {}
+        if (window.__flowI18nCache && (key in window.__flowI18nCache)) return window.__flowI18nCache[key] || '';
+        return '';
+      };
+      window.chrome.i18n.getUILanguage = window.chrome.i18n.getUILanguage || function(){
+        try { return (navigator.language || navigator.userLanguage || 'en') || 'en'; } catch (e) { return 'en'; }
+      };
+
+      // storage API (local and session)
+      function makeStorageArea(areaName){
+        var area = {};
+        area.get = function(keys, callback){
+          var arr = Array.isArray(keys) ? keys : (keys ? [keys] : []);
+          __flowCall({ api: 'storage', area: areaName, method: 'get', params: { keys: arr } })
+            .then(function(res){ if (callback) try { callback(res || {}); } catch(e) {} });
+        };
+        area.set = function(items, callback){
+          __flowCall({ api: 'storage', area: areaName, method: 'set', params: { items: items || {} } })
+            .then(function(){ if (callback) try { callback(); } catch(e) {} });
+        };
+        area.remove = function(keys, callback){
+          var arr = Array.isArray(keys) ? keys : (keys ? [keys] : []);
+          __flowCall({ api: 'storage', area: areaName, method: 'remove', params: { keys: arr } })
+            .then(function(){ if (callback) try { callback(); } catch(e) {} });
+        };
+        area.clear = function(callback){
+          __flowCall({ api: 'storage', area: areaName, method: 'clear', params: {} })
+            .then(function(){ if (callback) try { callback(); } catch(e) {} });
+        };
+        area.onChanged = { addListener: function(fn){ window.flowBrowser.runtime._add('storage.onChanged', fn); } };
+        return area;
+      }
+      window.chrome.storage = window.chrome.storage || {};
+      window.chrome.storage.local = window.chrome.storage.local || makeStorageArea('local');
+      window.chrome.storage.session = window.chrome.storage.session || makeStorageArea('session');
+
+      // windows API (minimal)
+      window.chrome.windows = window.chrome.windows || {};
+      window.chrome.windows.getAll = function(getInfo, callback){
+        __flowCall({ api: 'windows', method: 'getAll', params: getInfo || {} })
+          .then(function(res){ if (callback) try { callback(res || []); } catch(e){} });
+      };
+      window.chrome.windows.update = function(windowId, updateInfo, callback){
+        __flowCall({ api: 'windows', method: 'update', params: { windowId: windowId, updateInfo: updateInfo || {} } })
+          .then(function(res){ if (callback) try { callback(res || null); } catch(e){} });
+      };
+      window.chrome.windows.create = function(createData, callback){
+        __flowCall({ api: 'windows', method: 'create', params: createData || {} })
+          .then(function(res){ if (callback) try { callback(res || null); } catch(e){} });
+      };
+
+      // fontSettings API (stub)
+      window.chrome.fontSettings = window.chrome.fontSettings || {};
+      window.chrome.fontSettings.getFontList = function(callback){
+        var list = [
+          { fontId: 'serif', displayName: 'serif' },
+          { fontId: 'sans-serif', displayName: 'sans-serif' },
+          { fontId: 'monospace', displayName: 'monospace' },
+          { fontId: 'cursive', displayName: 'cursive' },
+          { fontId: 'fantasy', displayName: 'fantasy' },
+          { fontId: 'system-ui', displayName: 'system-ui' }
+        ];
+        try { if (callback) callback(list); } catch (e) {}
       };
     })();
     """

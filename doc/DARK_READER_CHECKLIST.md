@@ -25,21 +25,21 @@ This checklist tracks what’s needed to get the Dark Reader extension working e
 ## P0 Popup Rendering Issue
 - [ ] Popup does not render (only background shows)
   - [ ] Extend `ExtensionJSBridge` for popup/options to expose:
-    - [ ] `chrome.runtime.getURL`, `chrome.runtime.sendMessage/connect`
-    - [ ] `chrome.i18n.getMessage`
-    - [ ] `chrome.storage.local/session` (get/set/remove/clear)
-    - [ ] `chrome.tabs.sendMessage`
-    - [ ] Minimal `chrome.windows.getAll/update/create` used by popup
-    - [ ] `chrome.fontSettings.getFontList` (stub is acceptable initially)
+    - [x] `chrome.runtime.getURL`, `chrome.runtime.sendMessage/connect`
+    - [x] `chrome.i18n.getMessage`
+    - [x] `chrome.storage.local/session` (get/set/remove/clear)
+    - [x] `chrome.tabs.sendMessage`
+    - [x] Minimal `chrome.windows.getAll/update/create` used by popup
+    - [x] `chrome.fontSettings.getFontList` (stub is acceptable initially)
   - [ ] Ensure missing API calls fail gracefully (no popup crash).
   - [ ] Verify popup initializes UI and i18n text successfully.
 
 ## P1 Required For Feature Parity
-- [ ] Windows API
-  - [ ] Implement `windows.getAll`, `windows.update`, `windows.create` used by popup/options.
+- [x] Windows API
+  - [x] Implement `windows.getAll`, `windows.update`, `windows.create` used by popup/options.
 - [ ] Context Menus API
-  - [ ] Implement `contextMenus.create/remove/removeAll` and `contextMenus.onClicked`.
-  - [ ] Integrate created items into the web view’s context menu.
+  - [x] Implement `contextMenus.create/remove/removeAll` and `contextMenus.onClicked`.
+  - [x] Integrate created items into the web view’s context menu.
 - [ ] Commands API
   - [ ] Parse `commands` from manifest and register accelerators.
   - [ ] Fire `commands.onCommand` to background.

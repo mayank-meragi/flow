@@ -152,7 +152,20 @@ struct BackgroundJSBridge {
       // Placeholders for APIs referenced by Dark Reader during init
       chrome.action = chrome.action || { setIcon: function(){}, setBadgeText: function(){}, setBadgeBackgroundColor: function(){} };
       chrome.commands = chrome.commands || { getAll: function(cb){ if (cb) try { cb([]); } catch(e) {} }, onCommand: { addListener: function(fn){ window.flowBrowser.runtime._add('commands.onCommand', fn); } } };
-      chrome.contextMenus = chrome.contextMenus || { create: function(){}, removeAll: function(cb){ if (cb) try { cb(); } catch(e) {} }, onClicked: { addListener: function(fn){ window.flowBrowser.runtime._add('contextMenus.onClicked', fn); } } };
+      chrome.contextMenus = chrome.contextMenus || {};
+      chrome.contextMenus.onClicked = chrome.contextMenus.onClicked || { addListener: function(fn){ window.flowBrowser.runtime._add('contextMenus.onClicked', fn); } };
+      chrome.contextMenus.create = function(createProperties, callback){
+        return __flowCall({ api: 'contextMenus', method: 'create', params: { createProperties: createProperties || {} } })
+          .then(function(id){ if (callback) try { callback(id); } catch(e){}; return id; });
+      };
+      chrome.contextMenus.removeAll = function(callback){
+        return __flowCall({ api: 'contextMenus', method: 'removeAll', params: {} })
+          .then(function(){ if (callback) try { callback(); } catch(e){}; });
+      };
+      chrome.contextMenus.remove = function(menuItemId, callback){
+        return __flowCall({ api: 'contextMenus', method: 'remove', params: { menuItemId: menuItemId } })
+          .then(function(){ if (callback) try { callback(); } catch(e){}; });
+      };
       chrome.scripting = chrome.scripting || {};
       chrome.scripting.executeScript = function(options, callback){
         var target = options && options.target || {};

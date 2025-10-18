@@ -10,6 +10,7 @@ class MV3Extension: Extension {
     let permissionManager: PermissionManager
     let alarmsManager: AlarmsManager
     let i18nManager: I18nManager
+    let contextMenusManager = ContextMenusManager()
     private var backgroundHost: BackgroundWorkerHost?
     private let messaging = MessagingCenter()
 
@@ -57,6 +58,24 @@ class MV3Extension: Extension {
     }
     func stop() {}
 
+    // Emit a contextMenus.onClicked event into the background context
+    func emitContextMenuClicked(info: [String: Any], tab: [String: Any]?) {
+        guard let bg = backgroundHost?.webView else { return }
+        let infoJSON: String = {
+            if let data = try? JSONSerialization.data(withJSONObject: info, options: [.fragmentsAllowed]),
+               let s = String(data: data, encoding: .utf8) { return s }
+            return "{}"
+        }()
+        let tabJSON: String = {
+            if let tab = tab,
+               let data = try? JSONSerialization.data(withJSONObject: tab, options: [.fragmentsAllowed]),
+               let s = String(data: data, encoding: .utf8) { return s }
+            return "null"
+        }()
+        let js = "(function(){ try { var ls = window.flowBrowser.runtime.getEventListeners('contextMenus.onClicked'); var info = \(infoJSON); var tab = \(tabJSON); (ls||[]).forEach(function(l){ try { l(info, tab); } catch(e){} }); } catch(e){} })()"
+        DispatchQueue.main.async { bg.evaluateJavaScript(js, completionHandler: nil) }
+    }
+
     func handleAPICall(from webView: WKWebView, message: WKScriptMessage) {
         guard let body = message.body as? [String: Any],
             let api = body["api"] as? String,
@@ -83,6 +102,14 @@ class MV3Extension: Extension {
                 self.sendResponse(to: webView, callbackId: callbackId, result: NSNull())
             }
             
+        case "windows":
+            if let store = ScriptingAPIHost.getStore() {
+                let result = WindowsAPIHost.handle(method: method, params: params, store: store)
+                self.sendResponse(to: webView, callbackId: callbackId, result: result)
+            } else {
+                self.sendResponse(to: webView, callbackId: callbackId, result: NSNull())
+            }
+
         case "storage":
             guard let area = body["area"] as? String else { return }
 
@@ -128,6 +155,10 @@ class MV3Extension: Extension {
             } else {
                 self.sendResponse(to: webView, callbackId: callbackId, result: NSNull())
             }
+
+        case "contextMenus":
+            let result = ContextMenusAPIHost.handle(ext: self, method: method, params: params)
+            self.sendResponse(to: webView, callbackId: callbackId, result: result)
 
         default:
             print("Unknown API: \(api)")

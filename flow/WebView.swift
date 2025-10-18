@@ -1,5 +1,8 @@
 import SwiftUI
 import WebKit
+#if os(macOS)
+import AppKit
+#endif
 
 struct BrowserWebView: NSViewRepresentable {
     let tab: BrowserTab
@@ -99,7 +102,88 @@ struct BrowserWebView: NSViewRepresentable {
             }
             return nil
         }
+
+        #if os(macOS)
+        private func buildExtensionMenuItems() -> [NSMenuItem] {
+            guard let extMgr = extensionManager else { return [] }
+            var items: [NSMenuItem] = []
+            for ext in extMgr.extensions.values {
+                guard let mv3 = ext as? MV3Extension else { continue }
+                let registry = mv3.contextMenusManager
+                if registry.items.isEmpty { continue }
+                let values = Array(registry.items.values)
+                let byParent: [String?: [ContextMenusManager.Item]] = Dictionary(grouping: values, by: { $0.parentId })
+                for root in (byParent[nil] ?? []) {
+                    let rootItem = NSMenuItem(title: root.title ?? "", action: nil, keyEquivalent: "")
+                    if let children = byParent[root.id], !children.isEmpty {
+                        let submenu = NSMenu(title: root.title ?? "")
+                        for child in children {
+                            let mi = NSMenuItem(title: child.title ?? "", action: #selector(onExtensionMenuClicked(_:)), keyEquivalent: "")
+                            mi.target = self
+                            mi.representedObject = [
+                                "extensionId": mv3.id,
+                                "menuItemId": child.id
+                            ]
+                            submenu.addItem(mi)
+                        }
+                        rootItem.submenu = submenu
+                    } else {
+                        rootItem.action = #selector(onExtensionMenuClicked(_:))
+                        rootItem.target = self
+                        rootItem.representedObject = [
+                            "extensionId": mv3.id,
+                            "menuItemId": root.id
+                        ]
+                    }
+                    items.append(rootItem)
+                }
+            }
+            return items
+        }
+
+        // NSMenuDelegate: rebuild menu on demand
+        func menuNeedsUpdate(_ menu: NSMenu) {
+            menu.removeAllItems()
+            let items = buildExtensionMenuItems()
+            for item in items { menu.addItem(item) }
+        }
+
+        @objc private func onExtensionMenuClicked(_ sender: NSMenuItem) {
+            guard
+                let info = sender.representedObject as? [String: Any],
+                let extId = info["extensionId"] as? String,
+                let menuItemId = info["menuItemId"] as? String,
+                let store = store,
+                let tab = tab
+            else { return }
+
+            // Resolve extension instance
+            guard let mv3 = extensionManager?.extensions[extId] as? MV3Extension else { return }
+
+            // Build onClicked info and tab payloads
+            let pageUrl = tab.urlString
+            let infoPayload: [String: Any] = [
+                "menuItemId": menuItemId,
+                "frameId": 0,
+                "pageUrl": pageUrl,
+                "frameUrl": pageUrl
+            ]
+            let idx = store.tabs.firstIndex(where: { $0.id == tab.id }) ?? 0
+            let tabPayload: [String: Any] = [
+                "id": tab.id.uuidString,
+                "index": idx,
+                "active": tab.id == store.activeTabID,
+                "pinned": tab.isPinned,
+                "url": tab.urlString,
+                "title": tab.title
+            ]
+
+            mv3.emitContextMenuClicked(info: infoPayload, tab: tabPayload)
+        }
+        #endif
     }
+
+// moved to file scope at bottom for valid declaration
 
     func makeCoordinator() -> Coordinator { Coordinator(tab: tab, store: store, extensionManager: extensionManager) }
 
@@ -107,6 +191,12 @@ struct BrowserWebView: NSViewRepresentable {
         let view = tab.webView
         view.navigationDelegate = context.coordinator
         view.uiDelegate = context.coordinator
+        #if os(macOS)
+        // Override default WebKit menu with extension-provided items
+        let menu = NSMenu()
+        menu.delegate = context.coordinator
+        view.menu = menu
+        #endif
         // Inject Cmd+Click handler script and message bridge only once per tab/webview
         if tab.didInstallCmdClickBridge == false {
             let js = """
@@ -232,6 +322,11 @@ struct BrowserWebView: NSViewRepresentable {
         // We currently drive loads from SidebarView via BrowserTab.loadCurrentURL().
     }
 }
+
+#if os(macOS)
+// macOS-only conformance must be declared at file scope
+extension BrowserWebView.Coordinator: NSMenuDelegate {}
+#endif
 
 // MARK: - Content Script URL Matching Wrapper
 
