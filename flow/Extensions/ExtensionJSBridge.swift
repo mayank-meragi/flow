@@ -256,18 +256,11 @@ struct ExtensionJSBridge {
           .then(function(res){ if (callback) try { callback(res || null); } catch(e){} });
       };
 
-      // fontSettings API (stub)
+      // fontSettings API (native-backed)
       window.chrome.fontSettings = window.chrome.fontSettings || {};
       window.chrome.fontSettings.getFontList = function(callback){
-        var list = [
-          { fontId: 'serif', displayName: 'serif' },
-          { fontId: 'sans-serif', displayName: 'sans-serif' },
-          { fontId: 'monospace', displayName: 'monospace' },
-          { fontId: 'cursive', displayName: 'cursive' },
-          { fontId: 'fantasy', displayName: 'fantasy' },
-          { fontId: 'system-ui', displayName: 'system-ui' }
-        ];
-        try { if (callback) callback(list); } catch (e) {}
+        __flowCall({ api: 'fontSettings', method: 'getFontList', params: {} })
+          .then(function(list){ if (callback) try { callback(Array.isArray(list) ? list : []); } catch(e){} });
       };
     })();
     """

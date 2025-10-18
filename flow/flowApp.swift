@@ -17,6 +17,8 @@ struct flowApp: App {
                     // Wire BrowserStore event hooks to extensions for tabs.* events
                     extensionManager.attachStore(store)
                     extensionManager.loadExtensions()
+                    // Install key command center for extension commands
+                    KeyCommandCenter.shared.install()
                 }
         }
         .windowStyle(.hiddenTitleBar)

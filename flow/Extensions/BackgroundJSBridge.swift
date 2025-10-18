@@ -187,6 +187,12 @@ struct BackgroundJSBridge {
       chrome.scripting.registerContentScripts = chrome.scripting.registerContentScripts || function(){};
       chrome.scripting.unregisterContentScripts = chrome.scripting.unregisterContentScripts || function(){};
       chrome.scripting.getRegisteredContentScripts = chrome.scripting.getRegisteredContentScripts || function(cb){ if (cb) try { cb([]); } catch(e) {} };
+      // fontSettings (optional in background)
+      chrome.fontSettings = chrome.fontSettings || {};
+      chrome.fontSettings.getFontList = function(callback){
+        return __flowCall({ api: 'fontSettings', method: 'getFontList', params: {} })
+          .then(function(list){ if (callback) try { callback(Array.isArray(list) ? list : []); } catch(e){}; return list; });
+      };
       chrome.tabs = chrome.tabs || {};
       chrome.tabs.onCreated = chrome.tabs.onCreated || { addListener: function(fn){ window.flowBrowser.runtime._add('tabs.onCreated', fn); } };
       chrome.tabs.onUpdated = chrome.tabs.onUpdated || { addListener: function(fn){ window.flowBrowser.runtime._add('tabs.onUpdated', fn); } };

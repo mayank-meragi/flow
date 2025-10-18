@@ -55,6 +55,8 @@ class MV3Extension: Extension {
                 messaging.registerBackground(wv)
             }
         }
+        // Register keyboard shortcuts from manifest commands
+        registerCommands()
     }
     func stop() {}
 
@@ -160,6 +162,10 @@ class MV3Extension: Extension {
             let result = ContextMenusAPIHost.handle(ext: self, method: method, params: params)
             self.sendResponse(to: webView, callbackId: callbackId, result: result)
 
+        case "fontSettings":
+            let result = FontSettingsAPIHost.handle(method: method, params: params)
+            self.sendResponse(to: webView, callbackId: callbackId, result: result)
+
         default:
             print("Unknown API: \(api)")
         }
@@ -240,5 +246,48 @@ class MV3Extension: Extension {
         DispatchQueue.main.async {
             webView.evaluateJavaScript(script)
         }
+    }
+
+    // MARK: - Commands
+    private func registerCommands() {
+        guard let cmds = manifest.commands, !cmds.isEmpty else { return }
+        KeyCommandCenter.shared.install()
+        for (name, def) in cmds {
+            guard let combo = def.suggested_key?.default else { continue }
+            if let parsed = Self.parseShortcut(combo) {
+                KeyCommandCenter.shared.register(key: parsed.key, modifiers: parsed.modifiers) { [weak self] in
+                    self?.emitCommand(name)
+                }
+            }
+        }
+    }
+
+    private static func parseShortcut(_ s: String) -> (key: String, modifiers: NSEvent.ModifierFlags)? {
+        #if os(macOS)
+        let parts = s.split(separator: "+").map { String($0).trimmingCharacters(in: .whitespaces).lowercased() }
+        var mods: NSEvent.ModifierFlags = []
+        var key: String?
+        for p in parts {
+            switch p {
+            case "cmd", "command", "meta": mods.insert(.command)
+            case "alt", "option": mods.insert(.option)
+            case "shift": mods.insert(.shift)
+            case "ctrl", "control": mods.insert(.control)
+            default:
+                if key == nil, let ch = p.first, p.count == 1 { key = String(ch) }
+            }
+        }
+        guard let k = key else { return nil }
+        return (k, mods)
+        #else
+        return nil
+        #endif
+    }
+
+    func emitCommand(_ name: String) {
+        guard let bg = backgroundHost?.webView else { return }
+        let safe = name.replacingOccurrences(of: "'", with: "\\'")
+        let js = "(function(){ try { var ls = window.flowBrowser.runtime.getEventListeners('commands.onCommand'); (ls||[]).forEach(function(l){ try { l('" + safe + "'); } catch(e){} }); } catch(e){} })()"
+        DispatchQueue.main.async { bg.evaluateJavaScript(js, completionHandler: nil) }
     }
 }

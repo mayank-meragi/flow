@@ -60,10 +60,11 @@ struct Manifest: Codable {
     let host_permissions: [String]?
     let content_scripts: [ContentScript]?
     let background: MV3Background?
+    let commands: [String: CommandDef]?
 
     enum CodingKeys: String, CodingKey {
         case name, version, manifest_version, description, icons, options_page, permissions,
-            host_permissions, default_locale, background, content_scripts
+            host_permissions, default_locale, background, content_scripts, commands
         case action  // MV3 key
         case browser_action  // MV2 key
     }
@@ -81,6 +82,7 @@ struct Manifest: Codable {
         default_locale = try container.decodeIfPresent(String.self, forKey: .default_locale)
         background = try container.decodeIfPresent(MV3Background.self, forKey: .background)
         content_scripts = try container.decodeIfPresent([ContentScript].self, forKey: .content_scripts)
+        commands = try container.decodeIfPresent([String: CommandDef].self, forKey: .commands)
 
         // Handle action vs browser_action
         if let actionValue = try? container.decodeIfPresent(Action.self, forKey: .action) {
@@ -107,6 +109,7 @@ struct Manifest: Codable {
         try container.encodeIfPresent(default_locale, forKey: .default_locale)
         try container.encodeIfPresent(background, forKey: .background)
         try container.encodeIfPresent(content_scripts, forKey: .content_scripts)
+        try container.encodeIfPresent(commands, forKey: .commands)
         try container.encodeIfPresent(action, forKey: .action)
     }
 }
@@ -130,4 +133,13 @@ struct ContentScript: Codable {
     let all_frames: Bool?
     let match_about_blank: Bool?
     let world: String? // Non-standard MV3 additions supported in test extension
+}
+
+// Commands (keyboard shortcuts) definition
+struct CommandDef: Codable {
+    struct SuggestedKey: Codable {
+        let `default`: String?
+    }
+    let suggested_key: SuggestedKey?
+    let description: String?
 }

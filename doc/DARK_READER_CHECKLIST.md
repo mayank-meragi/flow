@@ -41,10 +41,10 @@ This checklist tracks what’s needed to get the Dark Reader extension working e
   - [x] Implement `contextMenus.create/remove/removeAll` and `contextMenus.onClicked`.
   - [x] Integrate created items into the web view’s context menu.
 - [ ] Commands API
-  - [ ] Parse `commands` from manifest and register accelerators.
-  - [ ] Fire `commands.onCommand` to background.
+  - [x] Parse `commands` from manifest and register accelerators.
+  - [x] Fire `commands.onCommand` to background.
 - [ ] Font Settings API
-  - [ ] Implement `chrome.fontSettings.getFontList` mapping to system fonts.
+  - [x] Implement `chrome.fontSettings.getFontList` mapping to system fonts.
 
 ## P1 Storage Sync (Graceful Degradation)
 - [ ] Provide a `chrome.storage.sync` shim
