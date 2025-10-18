@@ -10,6 +10,8 @@ class MV3Extension: Extension {
     let permissionManager: PermissionManager
     let alarmsManager: AlarmsManager
     let i18nManager: I18nManager
+    private var backgroundHost: BackgroundWorkerHost?
+    private let messaging = MessagingCenter()
 
     init(manifest: Manifest, directoryURL: URL) {
         let id = UUID().uuidString
@@ -41,7 +43,18 @@ class MV3Extension: Extension {
         }
     }
 
-    func start() {}
+    func start() {
+        // Start background worker if present
+        if let bg = manifest.background, let sw = bg.service_worker, !sw.isEmpty {
+            let host = BackgroundWorkerHost(ext: self, scriptRelativePath: sw)
+            self.backgroundHost = host
+            host.start()
+            // Register background context for messaging
+            if let wv = host.webView {
+                messaging.registerBackground(wv)
+            }
+        }
+    }
     func stop() {}
 
     func handleAPICall(from webView: WKWebView, message: WKScriptMessage) {
@@ -88,8 +101,43 @@ class MV3Extension: Extension {
                 self.sendResponse(to: webView, callbackId: callbackId, result: result)
             }
 
+        case "runtime":
+            self.handleRuntimeCall(from: webView, method: method, params: params) { result in
+                self.sendResponse(to: webView, callbackId: callbackId, result: result)
+            }
+
         default:
             print("Unknown API: \(api)")
+        }
+    }
+
+    func registerPageWebView(_ webView: WKWebView) {
+        messaging.registerPage(webView)
+    }
+
+    private func handleRuntimeCall(from webView: WKWebView, method: String, params: [String: Any], completion: (Any?) -> Void) {
+        switch method {
+        case "sendMessage":
+            let message = params["message"] ?? NSNull()
+            messaging.sendMessage(from: webView, message: message)
+            completion(NSNull())
+        case "connect":
+            let name = params["name"] as? String
+            let portId = params["portId"] as? String ?? UUID().uuidString
+            messaging.connect(from: webView, portId: portId, name: name)
+            completion(["portId": portId])
+        case "postPortMessage":
+            guard let portId = params["portId"] as? String else {
+                completion(NSNull()); return
+            }
+            let message = params["message"] ?? NSNull()
+            messaging.postPortMessage(from: webView, portId: portId, message: message)
+            completion(NSNull())
+        case "disconnectPort":
+            if let portId = params["portId"] as? String { messaging.disconnectPort(portId: portId) }
+            completion(NSNull())
+        default:
+            completion(NSNull())
         }
     }
 

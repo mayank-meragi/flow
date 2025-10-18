@@ -58,10 +58,12 @@ struct Manifest: Codable {
     let options_page: String?
     let permissions: [String]?
     let host_permissions: [String]?
+    let content_scripts: [ContentScript]?
+    let background: MV3Background?
 
     enum CodingKeys: String, CodingKey {
         case name, version, manifest_version, description, icons, options_page, permissions,
-            host_permissions, default_locale
+            host_permissions, default_locale, background, content_scripts
         case action  // MV3 key
         case browser_action  // MV2 key
     }
@@ -77,6 +79,8 @@ struct Manifest: Codable {
         permissions = try container.decodeIfPresent([String].self, forKey: .permissions)
         host_permissions = try container.decodeIfPresent([String].self, forKey: .host_permissions)
         default_locale = try container.decodeIfPresent(String.self, forKey: .default_locale)
+        background = try container.decodeIfPresent(MV3Background.self, forKey: .background)
+        content_scripts = try container.decodeIfPresent([ContentScript].self, forKey: .content_scripts)
 
         // Handle action vs browser_action
         if let actionValue = try? container.decodeIfPresent(Action.self, forKey: .action) {
@@ -101,6 +105,8 @@ struct Manifest: Codable {
         try container.encodeIfPresent(permissions, forKey: .permissions)
         try container.encodeIfPresent(host_permissions, forKey: .host_permissions)
         try container.encodeIfPresent(default_locale, forKey: .default_locale)
+        try container.encodeIfPresent(background, forKey: .background)
+        try container.encodeIfPresent(content_scripts, forKey: .content_scripts)
         try container.encodeIfPresent(action, forKey: .action)
     }
 }
@@ -109,4 +115,19 @@ struct Action: Codable {
     let default_popup: String?
     let default_title: String?
     let default_icon: IconSet?
+}
+
+// MV3 background configuration
+struct MV3Background: Codable {
+    let service_worker: String?
+}
+
+// Content scripts entries (minimal subset needed for Dark Reader)
+struct ContentScript: Codable {
+    let matches: [String]
+    let js: [String]?
+    let run_at: String?
+    let all_frames: Bool?
+    let match_about_blank: Bool?
+    let world: String? // Non-standard MV3 additions supported in test extension
 }

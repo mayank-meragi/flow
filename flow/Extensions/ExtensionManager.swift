@@ -52,10 +52,12 @@ class ExtensionManager: ObservableObject {
             case 3:
                 let newExtension = MV3Extension(manifest: manifest, directoryURL: directory)
                 extensions[newExtension.id] = newExtension
+                newExtension.start()
                 print("Loaded MV3 extension: \(manifest.name ?? "Unknown")")
             case 2:
                 let newExtension = MV2Extension(manifest: manifest, directoryURL: directory)
                 extensions[newExtension.id] = newExtension
+                newExtension.start()
                 print("Loaded MV2 extension: \(manifest.name ?? "Unknown")")
             default:
                 print(

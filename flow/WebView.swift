@@ -136,6 +136,66 @@ struct BrowserWebView: NSViewRepresentable {
             view.configuration.userContentController.add(context.coordinator, name: "flowExtension")
             tab.didInstallExtensionBridge = true
         }
+        // Install content scripts for MAIN/ISOLATED worlds at document_start where applicable (e.g., Dark Reader)
+        if tab.didInstallContentScripts == false {
+            let mgr = extensionManager
+            for ext in mgr.extensions.values {
+                    // Only MV3 for now
+                    if let mv3 = ext as? MV3Extension, let csets = mv3.manifest.content_scripts {
+                        for cs in csets {
+                            let world = (cs.world ?? "").uppercased()
+                            let runAt = (cs.run_at ?? "document_idle").lowercased()
+                            let injectionTime: WKUserScriptInjectionTime
+                            if runAt == "document_start" {
+                                injectionTime = .atDocumentStart
+                            } else if runAt == "document_idle" {
+                                injectionTime = .atDocumentEnd
+                            } else {
+                                continue
+                            }
+                            let allFrames = cs.all_frames ?? false
+                            // For this step we ignore matches/match_about_blank nuance and load globally (matches: <all_urls>)
+                            if let files = cs.js {
+                                for file in files {
+                                    let scriptURL = mv3.directoryURL.appendingPathComponent(file)
+                                    guard let source = try? String(contentsOf: scriptURL, encoding: .utf8) else {
+                                        print("[ContentScripts] Failed to read \(scriptURL.path)")
+                                        continue
+                                    }
+                                    if world == "MAIN" {
+                                        let userScript = WKUserScript(
+                                            source: source,
+                                            injectionTime: injectionTime,
+                                            forMainFrameOnly: !allFrames
+                                        )
+                                        view.configuration.userContentController.addUserScript(userScript)
+                                    } else if world == "ISOLATED" {
+                                        if #available(macOS 11.0, *) {
+                                            let contentWorld = WKContentWorld.world(name: "Flow-Ext-\(ext.id)")
+                                            let userScript = WKUserScript(
+                                                source: source,
+                                                injectionTime: injectionTime,
+                                                forMainFrameOnly: !allFrames,
+                                                in: contentWorld
+                                            )
+                                            view.configuration.userContentController.addUserScript(userScript)
+                                        } else {
+                                            // Fallback: inject in main world if isolated worlds are unavailable
+                                            let userScript = WKUserScript(
+                                                source: source,
+                                                injectionTime: injectionTime,
+                                                forMainFrameOnly: !allFrames
+                                            )
+                                            view.configuration.userContentController.addUserScript(userScript)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+            }
+            tab.didInstallContentScripts = true
+        }
         return view
     }
 

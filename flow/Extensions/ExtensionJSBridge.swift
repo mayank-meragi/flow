@@ -123,8 +123,49 @@ struct ExtensionJSBridge {
           var arr = window.flowBrowser.runtime._listeners.get('runtime.onMessage') || [];
           arr.push(fn);
           window.flowBrowser.runtime._listeners.set('runtime.onMessage', arr);
+        }},
+        onConnect: { addListener: function(fn){
+          var arr = window.flowBrowser.runtime._listeners.get('runtime.onConnect') || [];
+          arr.push(fn);
+          window.flowBrowser.runtime._listeners.set('runtime.onConnect', arr);
         }}
       }};
+
+      // Ports registry and helpers used by native to dispatch messages
+      window.__flowPorts = window.__flowPorts || new Map();
+      window.__flowCreatePort = window.__flowCreatePort || function(id, name){
+        var listeners = [];
+        var port = {
+          name: name || '',
+          onMessage: { addListener: function(fn){ listeners.push(fn); } },
+          postMessage: function(msg){
+            __flowCall({ api: 'runtime', method: 'postPortMessage', params: { portId: id, message: msg } });
+          },
+          disconnect: function(){ __flowCall({ api: 'runtime', method: 'disconnectPort', params: { portId: id } }); }
+        };
+        port._listeners = listeners;
+        window.__flowPorts.set(id, port);
+        return port;
+      };
+      window.__flowDispatchPortMessage = window.__flowDispatchPortMessage || function(id, msg){
+        var p = window.__flowPorts.get(id);
+        if (!p) return;
+        var ls = p._listeners || [];
+        ls.forEach(function(fn){ try { fn(msg); } catch(e){} });
+      };
+
+      // runtime messaging API
+      window.chrome.runtime = window.chrome.runtime || {};
+      window.chrome.runtime.sendMessage = function(message, responseCallback){
+        __flowCall({ api: 'runtime', method: 'sendMessage', params: { message: message } })
+          .then(function(res){ if (responseCallback) try { responseCallback(res); } catch(e){} });
+      };
+      window.chrome.runtime.connect = function(connectInfo){
+        var name = connectInfo && connectInfo.name || '';
+        var id = String(Math.floor(Math.random()*1e9)) + String(Date.now());
+        __flowCall({ api: 'runtime', method: 'connect', params: { name: name, portId: id } });
+        return window.__flowCreatePort(id, name);
+      };
     })();
     """
 }

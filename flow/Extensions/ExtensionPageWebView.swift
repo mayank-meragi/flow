@@ -87,6 +87,7 @@ struct ExtensionPageWebView: NSViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
         context.coordinator.hostedWebView = webView
+        `extension`.registerPageWebView(webView)
         webView.load(URLRequest(url: url))
         return webView
     }
