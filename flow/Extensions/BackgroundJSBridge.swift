@@ -175,6 +175,8 @@ struct BackgroundJSBridge {
       chrome.scripting.unregisterContentScripts = chrome.scripting.unregisterContentScripts || function(){};
       chrome.scripting.getRegisteredContentScripts = chrome.scripting.getRegisteredContentScripts || function(cb){ if (cb) try { cb([]); } catch(e) {} };
       chrome.tabs = chrome.tabs || {};
+      chrome.tabs.onCreated = chrome.tabs.onCreated || { addListener: function(fn){ window.flowBrowser.runtime._add('tabs.onCreated', fn); } };
+      chrome.tabs.onUpdated = chrome.tabs.onUpdated || { addListener: function(fn){ window.flowBrowser.runtime._add('tabs.onUpdated', fn); } };
       chrome.tabs.onRemoved = chrome.tabs.onRemoved || { addListener: function(fn){ window.flowBrowser.runtime._add('tabs.onRemoved', fn); } };
       chrome.tabs.query = chrome.tabs.query || function(q, cb){ __flowCall({ api: 'tabs', method: 'query', params: q || {} }).then(function(res){ if (cb) try { cb(res || []); } catch(e) {} }); };
       chrome.tabs.get = chrome.tabs.get || function(id, cb){ __flowCall({ api: 'tabs', method: 'get', params: { tabId: id } }).then(function(res){ if (cb) try { cb(res || null); } catch(e) {} }); };

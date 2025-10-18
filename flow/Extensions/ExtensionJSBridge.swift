@@ -96,6 +96,12 @@ struct ExtensionJSBridge {
         __flowCall({ api: 'tabs', method: 'duplicate', params: { tabId: tabId } })
           .then(function(res){ if (callback) try { callback(res); } catch(e) {} });
       };
+      window.chrome.tabs.sendMessage = function(tabId, message, options, callback) {
+        if (typeof options === 'function') { callback = options; options = {}; }
+        var params = { tabId: String(tabId), message: message || {}, options: options || {} };
+        __flowCall({ api: 'tabs', method: 'sendMessage', params: params })
+          .then(function(res){ if (callback) try { callback(res); } catch(e){} });
+      };
 
       // chrome.tabGroups namespace
       window.chrome.tabGroups = window.chrome.tabGroups || {};

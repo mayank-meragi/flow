@@ -140,6 +140,12 @@ struct BrowserWebView: NSViewRepresentable {
             view.configuration.userContentController.addUserScript(extBridge)
             tab.didInstallExtensionBridge = true
         }
+        // Register this tab's webview as a messaging page for each loaded extension
+        for ext in extensionManager.extensions.values {
+            if let mv3 = ext as? MV3Extension {
+                mv3.registerPageWebView(view)
+            }
+        }
         // Install content scripts for MAIN/ISOLATED worlds with proper matches/run_at/all_frames/match_about_blank
         if tab.didInstallContentScripts == false {
             let mgr = extensionManager

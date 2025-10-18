@@ -161,6 +161,8 @@ final class BrowserStore: ObservableObject {
         print("[Browser] newTab id=\(t.id) url=\(url)")
         // New active tab: ensure it starts loading
         t.ensureLoaded()
+        // Fire tabs.onCreated
+        NotificationCenter.default.post(name: .flowTabsOnCreated, object: self, userInfo: ["tab": chromeTabDict(for: t)])
         saveState()
         return t.id
     }
@@ -173,6 +175,8 @@ final class BrowserStore: ObservableObject {
         tabs.append(t)
         print("[Browser] newBackgroundTab id=\(t.id) url=\(url)")
         t.ensureLoaded()
+        // Fire tabs.onCreated
+        NotificationCenter.default.post(name: .flowTabsOnCreated, object: self, userInfo: ["tab": chromeTabDict(for: t)])
         saveState()
         return t.id
     }
@@ -182,6 +186,8 @@ final class BrowserStore: ObservableObject {
             let candidate = tabs[idx]
             // Do not close pinned tabs
             guard candidate.isPinned == false else { return }
+            // Fire tabs.onRemoved before removal
+            NotificationCenter.default.post(name: .flowTabsOnRemoved, object: self, userInfo: ["tabId": candidate.id.uuidString])
             let removed = tabs.remove(at: idx)
             if removed.id == activeTabID { activeTabID = tabs.first?.id }
             saveState()
@@ -352,10 +358,20 @@ extension BrowserStore {
 
     private func attachObservers(to tab: BrowserTab) {
         tab.$title
-            .sink { [weak self] _ in self?.saveState() }
+            .sink { [weak self, weak tab] _ in
+                guard let self = self, let tab = tab else { return }
+                self.saveState()
+                // Fire tabs.onUpdated with changeInfo.title
+                NotificationCenter.default.post(name: .flowTabsOnUpdated, object: self, userInfo: ["tabId": tab.id.uuidString, "changeInfo": ["title": tab.title], "tab": self.chromeTabDict(for: tab)])
+            }
             .store(in: &cancellables)
         tab.$urlString
-            .sink { [weak self] _ in self?.saveState() }
+            .sink { [weak self, weak tab] _ in
+                guard let self = self, let tab = tab else { return }
+                self.saveState()
+                // Fire tabs.onUpdated with changeInfo.url
+                NotificationCenter.default.post(name: .flowTabsOnUpdated, object: self, userInfo: ["tabId": tab.id.uuidString, "changeInfo": ["url": tab.urlString], "tab": self.chromeTabDict(for: tab)])
+            }
             .store(in: &cancellables)
         tab.$history
             .sink { [weak self] _ in self?.saveState() }
@@ -367,6 +383,9 @@ extension BrowserStore {
                 // Force a publish on tabs so views that derive pinned/others regroup immediately
                 if let self = self { self.tabs = self.tabs }
                 self?.saveState()
+                if let self = self, let tab = tab {
+                    NotificationCenter.default.post(name: .flowTabsOnUpdated, object: self, userInfo: ["tabId": tab.id.uuidString, "changeInfo": ["pinned": newVal], "tab": self.chromeTabDict(for: tab)])
+                }
             }
             .store(in: &cancellables)
         tab.$folderID
@@ -376,6 +395,28 @@ extension BrowserStore {
                 self?.saveState()
             }
             .store(in: &cancellables)
+    }
+}
+
+// MARK: - Tabs Events Notifications
+
+extension Notification.Name {
+    static let flowTabsOnCreated = Notification.Name("flow.tabs.onCreated")
+    static let flowTabsOnUpdated = Notification.Name("flow.tabs.onUpdated")
+    static let flowTabsOnRemoved = Notification.Name("flow.tabs.onRemoved")
+}
+
+extension BrowserStore {
+    fileprivate func chromeTabDict(for tab: BrowserTab) -> [String: Any] {
+        let idx = tabs.firstIndex(where: { $0.id == tab.id }) ?? 0
+        return [
+            "id": tab.id.uuidString,
+            "index": idx,
+            "active": tab.id == activeTabID,
+            "pinned": tab.isPinned,
+            "url": tab.urlString,
+            "title": tab.title
+        ]
     }
 }
 

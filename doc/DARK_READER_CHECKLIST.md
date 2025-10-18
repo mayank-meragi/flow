@@ -13,14 +13,14 @@ This checklist tracks what’s needed to get the Dark Reader extension working e
     - [x] `inject/fallback.js` + `inject/index.js` at `document_start`, `all_frames: true`, world ISOLATED.
     - [x] `inject/color-scheme-watcher.js` at `document_idle`, main frame only.
   - [x] Enforce `matches`, `run_at`, `all_frames`, `match_about_blank`, and JS world (MAIN/ISOLATED).
-- [ ] Scripting API
+- [x] Scripting API
   - [x] Implement `chrome.scripting.executeScript` for tab/frame targeted execution (used by background).
 - [ ] Runtime/tabs messaging bus
   - [x] Implement cross‑context messaging: background ↔ popup/options ↔ content.
-  - [ ] `chrome.runtime.sendMessage/connect`, `chrome.runtime.onMessage/onConnect`.
-  - [ ] `chrome.tabs.sendMessage` to content scripts.
+  - [x] `chrome.runtime.sendMessage/connect`, `chrome.runtime.onMessage/onConnect`.
+  - [x] `chrome.tabs.sendMessage` to content scripts.
 - [ ] Tabs events
-  - [ ] Fire `tabs.onCreated`, `tabs.onUpdated`, `tabs.onRemoved` from BrowserStore changes.
+  - [x] Fire `tabs.onCreated`, `tabs.onUpdated`, `tabs.onRemoved` from BrowserStore changes.
 
 ## P0 Popup Rendering Issue
 - [ ] Popup does not render (only background shows)

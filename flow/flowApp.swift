@@ -14,6 +14,8 @@ struct flowApp: App {
                 .onAppear {
                     // Provide BrowserStore to scripting host for background execution
                     ScriptingAPIHost.setStore(store)
+                    // Wire BrowserStore event hooks to extensions for tabs.* events
+                    extensionManager.attachStore(store)
                     extensionManager.loadExtensions()
                 }
         }

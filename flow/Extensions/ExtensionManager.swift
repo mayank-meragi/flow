@@ -15,6 +15,35 @@ class ExtensionManager: ObservableObject {
         self.extensionsDirectory = appSupport.appendingPathComponent("Flow/Extensions")
         createExtensionsDirectoryIfNeeded()
     }
+    
+    // Hook BrowserStore to broadcast tabs.* events to extensions' backgrounds
+    func attachStore(_ store: BrowserStore) {
+        NotificationCenter.default.addObserver(forName: .flowTabsOnCreated, object: store, queue: .main) { [weak self] note in
+            guard let self = self, let payload = note.userInfo?["tab"] as? [String: Any] else { return }
+            self.broadcastTabsEvent(name: "tabs.onCreated", payload: payload)
+        }
+        NotificationCenter.default.addObserver(forName: .flowTabsOnUpdated, object: store, queue: .main) { [weak self] note in
+            guard let self = self,
+                  let tabId = note.userInfo?["tabId"],
+                  let changeInfo = note.userInfo?["changeInfo"],
+                  let tab = note.userInfo?["tab"]
+            else { return }
+            // Package like chrome.tabs.onUpdated(tabId, changeInfo, tab)
+            let payload: [String: Any] = ["tabId": tabId, "changeInfo": changeInfo, "tab": tab]
+            self.broadcastTabsEvent(name: "tabs.onUpdated", payload: payload)
+        }
+        NotificationCenter.default.addObserver(forName: .flowTabsOnRemoved, object: store, queue: .main) { [weak self] note in
+            guard let self = self, let tabId = note.userInfo?["tabId"] else { return }
+            self.broadcastTabsEvent(name: "tabs.onRemoved", payload: ["tabId": tabId])
+        }
+    }
+
+    private func broadcastTabsEvent(name: String, payload: [String: Any]) {
+        for ext in extensions.values {
+            guard let mv3 = ext as? MV3Extension else { continue }
+            mv3.broadcastTabsEvent(name: name, payload: payload)
+        }
+    }
 
     private func createExtensionsDirectoryIfNeeded() {
         try? FileManager.default.createDirectory(

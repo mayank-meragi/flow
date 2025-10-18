@@ -138,6 +138,12 @@ class MV3Extension: Extension {
         messaging.registerPage(webView)
     }
 
+    // Broadcast tabs.* events into the background context
+    func broadcastTabsEvent(name: String, payload: [String: Any]) {
+        guard let bg = backgroundHost?.webView else { return }
+        broadcastEvent(to: bg, name: name, payload: payload)
+    }
+
     private func handleRuntimeCall(from webView: WKWebView, method: String, params: [String: Any], completion: (Any?) -> Void) {
         switch method {
         case "sendMessage":
