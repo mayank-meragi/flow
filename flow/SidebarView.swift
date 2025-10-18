@@ -214,6 +214,17 @@ private struct FolderSection: View {
                 } else {
                     Button("Collapse") { store.setFolderCollapsed(id: folder.id, collapsed: true) }
                 }
+                Divider()
+                Button(role: .destructive) {
+                    store.removeFolder(id: folder.id, deleteTabs: true)
+                } label: {
+                    Label("Remove Group and Tabs", systemImage: "trash")
+                }
+                Button {
+                    store.removeFolder(id: folder.id, deleteTabs: false)
+                } label: {
+                    Label("Ungroup Tabs", systemImage: "folder.badge.minus")
+                }
             }
             .padding(.horizontal, 4)
             .contentShape(Rectangle())

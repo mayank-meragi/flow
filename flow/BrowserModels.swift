@@ -416,4 +416,27 @@ extension BrowserStore {
         tabs[idx].folderID = folderID
         saveState()
     }
+
+    // Remove a folder. If deleteTabs is true, also close all tabs in that folder.
+    // If deleteTabs is false, ungroup the tabs (clear folderID) and only remove the folder.
+    func removeFolder(id: UUID, deleteTabs: Bool) {
+        guard let fIdx = folders.firstIndex(where: { $0.id == id }) else { return }
+        let tabsInFolder = tabs.filter { $0.folderID == id }
+        if deleteTabs {
+            // Force-close tabs regardless of pin state
+            tabsInFolder.forEach { forceClose(tabID: $0.id) }
+        } else {
+            // Ungroup: keep tabs but clear folder assignment
+            tabsInFolder.forEach { $0.folderID = nil }
+        }
+        folders.remove(at: fIdx)
+        saveState()
+    }
+
+    fileprivate func forceClose(tabID: UUID) {
+        if let idx = tabs.firstIndex(where: { $0.id == tabID }) {
+            let removed = tabs.remove(at: idx)
+            if removed.id == activeTabID { activeTabID = tabs.first?.id }
+        }
+    }
 }
