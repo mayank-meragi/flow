@@ -54,11 +54,11 @@ This checklist tracks what’s needed to get the Dark Reader extension working e
 ## P1 Tabs API Completeness
 - [x] `tabs.create`, `tabs.query`, `tabs.update`, `tabs.remove` (host implemented)
 - [x] `tabs.get`, `tabs.getCurrent`, `tabs.duplicate`, `tabs.reload`
-- [ ] Improve `tabs.query` URL filtering to support wildcard patterns.
+- [x] Improve `tabs.query` URL filtering to support wildcard patterns.
 
 ## P1 Host Permissions
 - [x] Parse and grant `permissions` and `host_permissions` from manifest.
-- [ ] Enforce URL matching for content script injection against host permissions.
+- [x] Enforce URL matching for content script injection against host permissions.
 
 ## P2 Polish and Stability
 - [ ] Broadcast events (e.g., `storage.onChanged`, `alarms.onAlarm`) to all active extension contexts.

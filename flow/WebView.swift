@@ -274,11 +274,12 @@ struct BrowserWebView: NSViewRepresentable {
                                         print("[ContentScripts] Failed to read \(scriptURL.path)")
                                         continue
                                     }
-                                    // Wrap source with a URL-matching guard honoring matches and match_about_blank
+                                    // Wrap source with guards honoring matches, match_about_blank, and host permissions
                                     let wrapped = buildContentScriptWrappedSource(
                                         original: source,
                                         matches: cs.matches,
-                                        matchAboutBlank: cs.match_about_blank ?? false
+                                        matchAboutBlank: cs.match_about_blank ?? false,
+                                        hostPermissions: mv3.manifest.host_permissions
                                     )
                                     if world == "MAIN" {
                                         let userScript = WKUserScript(
@@ -387,7 +388,7 @@ private func matchPatternToRegex(_ pattern: String) -> String? {
     return "^" + schemeRegex + ":\\/\\/" + hostRegex + pathRegex
 }
 
-private func buildContentScriptWrappedSource(original: String, matches: [String], matchAboutBlank: Bool) -> String {
+private func buildContentScriptWrappedSource(original: String, matches: [String], matchAboutBlank: Bool, hostPermissions: [String]?) -> String {
     // Build an array of regex strings from match patterns
     var regexes: [String] = []
     for p in matches {
@@ -395,16 +396,31 @@ private func buildContentScriptWrappedSource(original: String, matches: [String]
             regexes.append(r)
         }
     }
-    // Fallback to block nothing if no valid patterns
+    // Host permissions regexes
+    var hostRegexes: [String] = []
+    if let hostPermissions = hostPermissions {
+        for p in hostPermissions {
+            if let r = matchPatternToRegex(p) { hostRegexes.append(r) }
+        }
+    }
+    // Fallbacks: if no valid patterns, block; same for host perms (must be present)
     let regexArrayLiteral = regexes.map { "/\($0)/" }.joined(separator: ", ")
+    let hostRegexArrayLiteral = hostRegexes.map { "/\($0)/" }.joined(separator: ", ")
     let aboutBlankFlag = matchAboutBlank ? "true" : "false"
     let prefix = """
     (() => {
         const __flowMatchRegexes = [\(regexArrayLiteral)];
+        const __flowHostRegexes = [\(hostRegexArrayLiteral)];
         const __flowMatchAboutBlank = \(aboutBlankFlag);
         function __flowUrlMatches(u) {
             if (!u) return false;
             try { const s = String(u); return __flowMatchRegexes.some(r => r.test(s)); } catch { return false; }
+        }
+        function __flowHostUrlMatches(u) {
+            if (!u) return false;
+            // If no host permission regexes provided, block injection
+            if (!__flowHostRegexes || __flowHostRegexes.length === 0) return false;
+            try { const s = String(u); return __flowHostRegexes.some(r => r.test(s)); } catch { return false; }
         }
         (function(){
             const href = location.href;
@@ -412,8 +428,10 @@ private func buildContentScriptWrappedSource(original: String, matches: [String]
                 if (!__flowMatchAboutBlank) return;
                 const ref = document.referrer || '';
                 if (!__flowUrlMatches(ref)) return;
+                if (!__flowHostUrlMatches(ref)) return;
             } else {
                 if (!__flowUrlMatches(href)) return;
+                if (!__flowHostUrlMatches(href)) return;
             }
         })();
     """

@@ -78,8 +78,7 @@ struct TabsAPIHost {
             }
             if let p = pinnedFilter, t.isPinned != p { return nil }
             if !urlPatterns.isEmpty {
-                // Simple exact match; wildcard matching can be added later
-                if urlPatterns.contains(where: { $0 == t.urlString }) == false { return nil }
+                if TabsAPIHost.matches(url: t.urlString, patterns: urlPatterns) == false { return nil }
             }
             return toDict(tab: t, index: idx, store: store)
         }
@@ -207,5 +206,35 @@ struct TabsAPIHost {
             d["groupId"] = -1
         }
         return d
+    }
+
+    // MARK: - URL pattern matching (simple glob support)
+
+    private static func matches(url: String, patterns: [String]) -> Bool {
+        for p in patterns {
+            if match(url: url, pattern: p) { return true }
+        }
+        return false
+    }
+
+    private static func match(url: String, pattern: String) -> Bool {
+        // Special token
+        if pattern == "<all_urls>" {
+            // Accept common schemes
+            return url.range(of: "^(?:https?|file|ftp|ws|wss)://", options: [.regularExpression, .caseInsensitive]) != nil
+        }
+        // Convert simple wildcard glob to regex. Escape then replace \* -> .*, \? -> .
+        let escaped = NSRegularExpression.escapedPattern(for: pattern)
+        let regexPattern = "^" + escaped
+            .replacingOccurrences(of: "\\*", with: ".*")
+            .replacingOccurrences(of: "\\?", with: ".") + "$"
+        do {
+            let re = try NSRegularExpression(pattern: regexPattern, options: [.caseInsensitive])
+            let range = NSRange(location: 0, length: (url as NSString).length)
+            return re.firstMatch(in: url, options: [], range: range) != nil
+        } catch {
+            // Fallback to exact compare on regex failure
+            return url == pattern
+        }
     }
 }
