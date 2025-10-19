@@ -183,8 +183,13 @@ struct ExtensionJSBridge {
       window.chrome.runtime.onConnect = window.chrome.runtime.onConnect || { addListener: function(fn){ window.flowBrowser.runtime._add('runtime.onConnect', fn); } };
       // Align with background: resolve extension-relative URLs
       window.chrome.runtime.getURL = window.chrome.runtime.getURL || function(path){
-        try { return new URL(path || '', document.baseURI || location.href).toString(); }
-        catch (e) { return String(path || ''); }
+        try {
+          var base = document.baseURI || location.href;
+          var p = String(path || '');
+          // For file:// base, treat absolute-like paths as relative to extension root
+          if (p.startsWith('/')) p = p.slice(1);
+          return new URL(p, base).toString();
+        } catch (e) { return String(path || ''); }
       };
       window.chrome.runtime.sendMessage = function(message, responseCallback){
         __flowCall({ api: 'runtime', method: 'sendMessage', params: { message: message } })

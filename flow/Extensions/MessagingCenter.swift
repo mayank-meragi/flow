@@ -13,6 +13,7 @@ final class MessagingCenter {
 
     func registerBackground(_ webView: WKWebView) {
         background = WeakWebView(webView)
+        print("[Messaging] registerBackground wv=\(hash(of: webView))")
     }
 
     func registerPage(_ webView: WKWebView) {
@@ -20,6 +21,7 @@ final class MessagingCenter {
         if pages.contains(where: { $0.webView === webView }) { return }
         pages.append(WeakWebView(webView))
         pages = pages.filter { $0.webView != nil }
+        print("[Messaging] registerPage wv=\(hash(of: webView)) pages=\(pages.count)")
     }
 
     private func dispatchOnMessage(to target: WKWebView, message: Any) {
@@ -32,11 +34,13 @@ final class MessagingCenter {
     func sendMessage(from sender: WKWebView, message: Any) {
         // If sender is a page, deliver to background. If sender is background, broadcast to pages.
         if sender === background?.webView {
+            print("[Messaging] background -> pages onMessage msg=\(describe(message))")
             // Background -> pages
             for page in pages {
                 if let wv = page.webView, wv != sender { dispatchOnMessage(to: wv, message: message) }
             }
         } else {
+            print("[Messaging] page -> background onMessage msg=\(describe(message))")
             // Page -> background
             if let bg = background?.webView { dispatchOnMessage(to: bg, message: message) }
         }
@@ -45,6 +49,7 @@ final class MessagingCenter {
     func connect(from sender: WKWebView, portId: String, name: String?) {
         // Create peer mapping and fire onConnect on the other side with a created port
         if sender === background?.webView {
+            print("[Messaging] background connect name=\(name ?? "") portId=\(portId)")
             // connect from background -> pages (broadcast connect)
             for page in pages {
                 if let wv = page.webView {
@@ -53,6 +58,7 @@ final class MessagingCenter {
                 }
             }
         } else {
+            print("[Messaging] page connect name=\(name ?? "") portId=\(portId)")
             // connect from page -> background
             if let bg = background?.webView {
                 portPeers[portId + "@" + hash(of: bg)] = sender
@@ -65,6 +71,7 @@ final class MessagingCenter {
         // Deliver to the peer registered via connect
         // Find the matching peer by trying both background and each page keys
         if sender === background?.webView {
+            print("[Messaging] background portMessage id=\(portId) msg=\(describe(message))")
             // Background sending; deliver to all pages that have this port
             for page in pages {
                 if let wv = page.webView {
@@ -75,6 +82,7 @@ final class MessagingCenter {
                 }
             }
         } else {
+            print("[Messaging] page portMessage id=\(portId) msg=\(describe(message))")
             if let bg = background?.webView {
                 let key = portId + "@" + hash(of: bg)
                 if portPeers[key] === sender {
@@ -87,6 +95,7 @@ final class MessagingCenter {
     func disconnectPort(portId: String) {
         // For now, just drop mappings. Disconnection event can be added later.
         portPeers = portPeers.filter { !$0.key.hasPrefix(portId + "@") }
+        print("[Messaging] disconnectPort id=\(portId)")
     }
 
     private func fireOnConnect(on target: WKWebView, portId: String, name: String) {
@@ -105,6 +114,13 @@ final class MessagingCenter {
         return String(UInt(bitPattern: ObjectIdentifier(wv)))
     }
 
+    private func describe(_ obj: Any) -> String {
+        if let str = obj as? String { return str }
+        if let data = try? JSONSerialization.data(withJSONObject: obj, options: [.fragmentsAllowed]),
+           let json = String(data: data, encoding: .utf8) { return json }
+        return String(describing: obj)
+    }
+
     private func escapeForJS(_ s: String) -> String {
         var out = s
         out = out.replacingOccurrences(of: "\\", with: "\\\\")
@@ -115,4 +131,3 @@ final class MessagingCenter {
         return out
     }
 }
-

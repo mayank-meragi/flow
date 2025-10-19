@@ -27,6 +27,8 @@ class MV3Extension: Extension {
     let contextMenusManager = ContextMenusManager()
     private var backgroundHost: BackgroundWorkerHost?
     private let messaging = MessagingCenter()
+    // Map popup/page runtime.sendMessage callbacks awaiting background replies
+    private var pendingMessageReplies: [Int: WKWebView] = [:]
 
     init(manifest: Manifest, directoryURL: URL) {
         let id = UUID().uuidString
@@ -95,6 +97,8 @@ class MV3Extension: Extension {
             return
         }
 
+        print("[MV3Extension] api=\(api) method=\(method) cb=\(callbackId) paramsKeys=\(Array(params.keys)) fromBG=\(webView === backgroundHost?.webView ? "yes" : "no")")
+
         switch api {
         case "tabs":
             // Route background tabs.* calls via host
@@ -151,8 +155,29 @@ class MV3Extension: Extension {
             }
 
         case "runtime":
-            self.handleRuntimeCall(from: webView, method: method, params: params) { result in
-                self.sendResponse(to: webView, callbackId: callbackId, result: result)
+            // Special-case sendMessage to support background response via sendResponse
+            if method == "sendMessage" {
+                // Store awaiting callback target
+                pendingMessageReplies[callbackId] = webView
+                // Deliver to background with a sendResponse bridge
+                if let bg = backgroundHost?.webView,
+                   let message = params["message"],
+                   let msgData = try? JSONSerialization.data(withJSONObject: message, options: [.fragmentsAllowed]),
+                   let msgJSON = String(data: msgData, encoding: .utf8) {
+                    let senderURL = (webView.url?.absoluteString ?? "")
+                    let safeSender = senderURL.replacingOccurrences(of: "'", with: "\\'")
+                    let js = "(function(){ try { var msg = \(msgJSON); var sender={url:'" + safeSender + "'}; var attempts=200, delay=50; var responded=false; function dbg(m){ try{ window.webkit.messageHandlers.flowExtension.postMessage(m); }catch(e){} } function sendResponse(payload){ responded=true; dbg({ api:'debug', method:'onMessageSendResponseCalled', type: (msg&&msg.type)||'', hasPayload: (typeof payload!=='undefined'), payloadType: (payload==null? 'null' : typeof payload) }); try { window.webkit.messageHandlers.flowExtension.postMessage({ api:'runtime', method:'deliverMessageResponse', callbackId: \(callbackId), response: payload }); } catch(e){} } function tryDispatch(){ var ls = (window.flowBrowser&&window.flowBrowser.runtime&&window.flowBrowser.runtime.getEventListeners)?window.flowBrowser.runtime.getEventListeners('runtime.onMessage'):[]; dbg({ api:'debug', method:'onMessageDispatch', listCount: (ls&&ls.length)||0, senderUrl: '" + safeSender + "', msgType: (msg&&msg.type)||'' }); if (!ls || ls.length===0){ if (attempts-- > 0){ setTimeout(tryDispatch, delay); return; } dbg({ api:'debug', method:'onMessageNoListeners', type: (msg&&msg.type)||'' }); } (ls||[]).forEach(function(l, idx){ try { l(msg, sender, sendResponse); dbg({ api:'debug', method:'onMessageListenerInvoked', index: idx }); } catch(e){ dbg({ api:'debug', method:'onMessageListenerError', index: idx }); } }); setTimeout(function(){ if (!responded) dbg({ api:'debug', method:'onMessageNoResponse', type: (msg&&msg.type)||'' }); }, 2000); } tryDispatch(); } catch(e){ try{ window.webkit.messageHandlers.flowExtension.postMessage({ api:'debug', method:'onMessageDispatchError', error: String(e) }); }catch(_){} } })()"
+                    DispatchQueue.main.async { bg.evaluateJavaScript(js, completionHandler: nil) }
+                } else {
+                    // No background available; reply with null so caller doesn't hang
+                    self.sendResponse(to: webView, callbackId: callbackId, result: NSNull())
+                    _ = pendingMessageReplies.removeValue(forKey: callbackId)
+                }
+                // Do not send immediate response here; it will be sent by deliverMessageResponse
+            } else {
+                self.handleRuntimeCall(from: webView, method: method, params: params) { result in
+                    self.sendResponse(to: webView, callbackId: callbackId, result: result)
+                }
             }
 
         case "scripting":
@@ -195,8 +220,7 @@ class MV3Extension: Extension {
     private func handleRuntimeCall(from webView: WKWebView, method: String, params: [String: Any], completion: (Any?) -> Void) {
         switch method {
         case "sendMessage":
-            let message = params["message"] ?? NSNull()
-            messaging.sendMessage(from: webView, message: message)
+            // Handled in handleAPICall (special-case)
             completion(NSNull())
         case "connect":
             let name = params["name"] as? String
@@ -218,7 +242,24 @@ class MV3Extension: Extension {
         }
     }
 
+    // Receive background sendResponse and deliver back to the originating page callback
+    func handleRuntimeDeliverMessageResponse(_ params: [String: Any]) {
+        guard let cb = params["callbackId"] as? Int else { return }
+        let payload = params["response"]
+        guard let target = pendingMessageReplies.removeValue(forKey: cb) else { return }
+        self.sendResponse(to: target, callbackId: cb, result: payload)
+    }
+
     private func sendResponse(to webView: WKWebView, callbackId: Int, result: Any?) {
+        #if DEBUG
+        if let r = result as? [String: Any] {
+            print("[MV3Extension] sendResponse cb=\(callbackId) keys=\(Array(r.keys))")
+        } else if let arr = result as? [Any] {
+            print("[MV3Extension] sendResponse cb=\(callbackId) arrayCount=\(arr.count)")
+        } else {
+            print("[MV3Extension] sendResponse cb=\(callbackId) type=\(type(of: result))")
+        }
+        #endif
         let resultData: Any
         if let result = result {
             resultData = result

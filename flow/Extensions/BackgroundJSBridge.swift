@@ -49,9 +49,46 @@ struct BackgroundJSBridge {
       // runtime
       chrome.runtime = chrome.runtime || {};
       chrome.runtime.onStartup = chrome.runtime.onStartup || { addListener: function(fn){ window.flowBrowser.runtime._add('runtime.onStartup', fn); }, removeListener: function(fn){} };
-      chrome.runtime.onMessage = chrome.runtime.onMessage || { addListener: function(fn){ window.flowBrowser.runtime._add('runtime.onMessage', fn); } };
+      chrome.runtime.onMessage = chrome.runtime.onMessage || { addListener: function(fn){
+        try { window.__flowBgOnMessageCount = (window.__flowBgOnMessageCount||0) + 1; } catch(e){}
+        window.flowBrowser.runtime._add('runtime.onMessage', fn);
+        try { if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.flowExtension) { window.webkit.messageHandlers.flowExtension.postMessage({ api: 'debug', method: 'onMessageAdded', count: window.__flowBgOnMessageCount }); } } catch(e){}
+      } };
+
+      // Diagnostics to verify background world visibility of chrome/runtime
+      try {
+        function __flowDiag(label){
+          try {
+            var count = 0;
+            try { var ls = (window.flowBrowser && window.flowBrowser.runtime && window.flowBrowser.runtime.getEventListeners) ? window.flowBrowser.runtime.getEventListeners('runtime.onMessage') : null; count = (ls && ls.length) || 0; } catch (e) {}
+            var types = {
+              chrome: typeof chrome,
+              runtime: typeof (chrome && chrome.runtime),
+              onMessage: typeof (chrome && chrome.runtime && chrome.runtime.onMessage),
+              addListener: typeof (chrome && chrome.runtime && chrome.runtime.onMessage && chrome.runtime.onMessage.addListener),
+              listenerCount: count,
+              href: (document && document.location && document.location.href) || ''
+            };
+            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.flowExtension) {
+              window.webkit.messageHandlers.flowExtension.postMessage({ api:'debug', method:'diag', label: String(label||''), types: types });
+            }
+          } catch (e) {}
+        }
+        // Run a few staged diagnostics during startup
+        __flowDiag('bridge-init');
+        setTimeout(function(){ __flowDiag('t+100'); }, 100);
+        setTimeout(function(){ __flowDiag('t+500'); }, 500);
+        setTimeout(function(){ __flowDiag('t+1500'); }, 1500);
+      } catch (e) {}
       chrome.runtime.onConnect = chrome.runtime.onConnect || { addListener: function(fn){ window.flowBrowser.runtime._add('runtime.onConnect', fn); } };
-      chrome.runtime.getURL = chrome.runtime.getURL || function(path){ try { return new URL(path || '', document.baseURI || location.href).toString(); } catch (e) { return String(path || ''); } };
+      chrome.runtime.getURL = chrome.runtime.getURL || function(path){
+        try {
+          var base = document.baseURI || location.href;
+          var p = String(path || '');
+          if (p.startsWith('/')) p = p.slice(1);
+          return new URL(p, base).toString();
+        } catch (e) { return String(path || ''); }
+      };
       chrome.runtime.lastError = null;
 
       // i18n
@@ -282,6 +319,59 @@ struct BackgroundJSBridge {
         return __flowCall({ api: 'tabs', method: 'sendMessage', params: params }).then(function(res){ if (callback) try { callback(res); } catch(e){}; return res; });
       };
       chrome.permissions = chrome.permissions || { onRemoved: { addListener: function(fn){ window.flowBrowser.runtime._add('permissions.onRemoved', fn); } }, contains: function(p, cb){ __flowCall({ api: 'permissions', method: 'contains', params: { permissions: p && p.permissions || [] } }).then(function(res){ if (cb) try { cb(!!res); } catch(e) {} }); } };
+
+      // Extra diagnostics: patch Messenger once available to trace GET_DATA path
+      try {
+        (function(){
+          function post(msg){ try { window.webkit.messageHandlers.flowExtension.postMessage(msg); } catch(e){} }
+          var attempts = 100;
+          var int = setInterval(function(){
+            try {
+              if (typeof Messenger !== 'undefined' && Messenger && !Messenger.__flowDiagPatched) {
+                // Wrap messageListener to log sender/allowed check
+                if (typeof Messenger.messageListener === 'function') {
+                  var orig = Messenger.messageListener;
+                  Messenger.messageListener = function(message, sender, sendResponse){
+                    try {
+                      var allowed = [
+                        chrome.runtime.getURL('/ui/popup/index.html'),
+                        chrome.runtime.getURL('/ui/devtools/index.html'),
+                        chrome.runtime.getURL('/ui/options/index.html'),
+                        chrome.runtime.getURL('/ui/stylesheet-editor/index.html')
+                      ];
+                      post({ api:'debug', method:'messengerMessage', msgType: (message&&message.type)||'', senderUrl: (sender&&sender.url)||'', allowed0: allowed[0] });
+                    } catch (e) {}
+                    return orig.apply(this, arguments);
+                  };
+                }
+                // Wrap adapter.collect to see if GET_DATA resolves/rejects
+                if (Messenger.adapter && typeof Messenger.adapter.collect === 'function') {
+                  var origCollect = Messenger.adapter.collect;
+                  Messenger.adapter.collect = function(){
+                    post({ api:'debug', method:'collectStart' });
+                    try {
+                      var p = origCollect.apply(this, arguments);
+                      if (p && typeof p.then === 'function') {
+                        return p.then(function(r){ post({ api:'debug', method:'collectDone' }); return r; })
+                                .catch(function(err){ post({ api:'debug', method:'collectError', error: String(err) }); throw err; });
+                      }
+                      post({ api:'debug', method:'collectSync' });
+                      return p;
+                    } catch (e) {
+                      post({ api:'debug', method:'collectThrow', error: String(e) });
+                      throw e;
+                    }
+                  };
+                }
+                Messenger.__flowDiagPatched = true;
+                post({ api:'debug', method:'messengerPatched' });
+                clearInterval(int);
+              }
+            } catch (e) {}
+            if (--attempts <= 0) { clearInterval(int); }
+          }, 50);
+        })();
+      } catch (e) {}
     })();
     """
 }

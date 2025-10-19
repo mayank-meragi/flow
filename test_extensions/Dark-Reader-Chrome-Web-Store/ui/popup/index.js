@@ -1,6 +1,20 @@
 (function () {
     "use strict";
 
+    // Flow debug instrumentation for popup boot issues.
+    try {
+        if (typeof console !== 'undefined') {
+            console.log('[Flow][Popup] index.js loaded at', new Date().toISOString());
+            console.log('[Flow][Popup] navigator.userAgent=', (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '(no navigator)');
+        }
+        window.addEventListener('error', (e) => {
+            try { console.error('[Flow][Popup] window error:', e?.error || e?.message || e); } catch(_) {}
+        }, {passive: true});
+        window.addEventListener('unhandledrejection', (e) => {
+            try { console.error('[Flow][Popup] unhandledrejection:', e?.reason); } catch(_) {}
+        }, {passive: true});
+    } catch (_) {}
+
     /* malevic@0.20.2 - Aug 10, 2024 */
     function m$1(tagOrComponent, props, ...children) {
         props = props || {};
@@ -7655,19 +7669,35 @@
         });
     }
     async function start() {
+        const t0 = Date.now();
+        console.log('[Flow][Popup] start() invoked');
         const connector = new Connector();
-        window.addEventListener("unload", () => connector.disconnect(), {
-            passive: true
-        });
-        const [data, fonts, installation] = await Promise.all([
-            connector.getData(),
-            getFontList(),
-            getInstallationData()
-        ]);
-        renderBody(data, fonts, installation, connector);
-        connector.subscribeToChanges((data) =>
-            renderBody(data, fonts, installation, connector)
-        );
+        window.addEventListener("unload", () => connector.disconnect(), { passive: true });
+        try {
+            console.log('[Flow][Popup] requesting data from background...');
+            const [data, fonts, installation] = await Promise.all([
+                (async () => { const d = await connector.getData(); console.log('[Flow][Popup] getData() resolved', d ? 'ok' : 'empty'); return d; })(),
+                (async () => { const f = await getFontList(); console.log('[Flow][Popup] getFontList() resolved count=', Array.isArray(f)? f.length : 'n/a'); return f; })(),
+                (async () => { const i = await getInstallationData(); console.log('[Flow][Popup] getInstallationData() resolved', i); return i; })(),
+            ]);
+            console.log('[Flow][Popup] all data resolved in', (Date.now()-t0)+'ms');
+            renderBody(data, fonts, installation, connector);
+            connector.subscribeToChanges((data) => {
+                console.log('[Flow][Popup] change event received');
+                renderBody(data, fonts, installation, connector);
+            });
+        } catch (err) {
+            console.error('[Flow][Popup] start() failed:', err);
+            try {
+                const msg = '[Flow][Popup] Failed to initialize: ' + (err && (err.message || err.toString ? err.toString() : String(err)));
+                const el = document.createElement('pre');
+                el.textContent = msg;
+                el.style.color = '#e96c4c';
+                el.style.whiteSpace = 'pre-wrap';
+                document.body.innerHTML = '';
+                document.body.appendChild(el);
+            } catch(_) {}
+        }
     }
     addEventListener("load", start, {passive: true});
     document.documentElement.classList.toggle("mobile", isMobile);

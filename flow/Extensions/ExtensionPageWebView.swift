@@ -98,6 +98,7 @@ struct ExtensionPageWebView: NSViewRepresentable {
         // Attach content rule lists (if any) for this extension
         let lists = `extension`.runtime.networkHandler.getContentRuleLists()
         for list in lists { webView.configuration.userContentController.add(list) }
+        print("[ExtPage] loading extension page url=\(url.absoluteString)")
         webView.load(URLRequest(url: url))
         return webView
     }
@@ -105,6 +106,7 @@ struct ExtensionPageWebView: NSViewRepresentable {
     func updateNSView(_ nsView: WKWebView, context: Context) {
         // Reload if URL changes
         if nsView.url != url {
+            print("[ExtPage] reload due to URL change -> \(url.absoluteString)")
             nsView.load(URLRequest(url: url))
         }
     }
