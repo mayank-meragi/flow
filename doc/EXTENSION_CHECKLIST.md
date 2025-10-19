@@ -111,3 +111,59 @@ This includes full support for version-specific features and expanding the API s
 ### 3. Developer Tools
 - [ ] Implement `devtools_page` manifest key support.
 - [ ] Allow extensions to create custom panels in the browser's developer tools.
+
+## Feedbro (MV2) Compatibility Checklist
+
+This checklist tracks what’s needed for the Feedbro MV2 extension (test_extensions/Feedbro-Chrome-Web-Store) to run properly in Flow, mapped to our current implementation.
+
+### Manifest + Pages
+- [x] Parse MV2 `browser_action` and render popup (`mainmenu.html`).
+- [x] Open `options_page` (`options.html`) from toolbar menu.
+- [x] Implement MV2 background page host for `background.page` (persistent `background.html`).
+- [x] i18n default locale + `_locales` via `i18n.getMessage` in pages/background shims.
+
+### Permissions
+- [x] Parse and grant declared permissions: `tabs`, `storage`, host permissions (`http://*/`, `https://*/`), `unlimitedStorage`.
+- [x] Enforce host permissions for extension-initiated XHR/fetch in MV2 page contexts with native CORS-bypass fetch/XHR shim.
+- [x] Implement interception pipeline wiring:
+  - [x] Route WKNavigationDelegate decisions through aggregated `NetworkHandler.shouldProcessRequest` (MV2 block, MV3 allow).
+  - [x] Attach MV3 `WKContentRuleList`s to all webviews.
+  - [x] Extension-page XHR/fetch routed via native with host-permission checks.
+  - [ ] Subresource (non-navigation) request interception (WebKit limitation; needs alternative strategy).
+
+### Chrome APIs (required/used by Feedbro)
+- Tabs API
+  - [x] Methods: `tabs.create`, `tabs.query`, `tabs.update`, `tabs.remove`, `tabs.reload`, `tabs.get`, `tabs.getCurrent`, `tabs.duplicate`, `tabs.sendMessage` (popup/options context).
+  - [x] Events: deliver `tabs.onCreated`, `tabs.onUpdated`, `tabs.onRemoved` to MV2 background.
+- Storage API
+  - [x] `storage.local`, `storage.session`, and `storage.onChanged`.
+- Permissions API
+  - [x] `permissions.request`, `permissions.contains`, `permissions.getAll` (prompt UI in place).
+- Notifications API
+  - [ ] Implement `chrome.notifications.create` and events (`onClicked`, `onClosed`).
+- Windows API
+  - [ ] Expose minimal `chrome.windows` to MV2 page/background if needed (not required by Feedbro core).
+
+### Messaging (runtime)
+- [ ] MV2: implement `runtime.sendMessage`, `runtime.onMessage`, `runtime.connect`/ports in `MV2Extension` (parity with MV3 `MessagingCenter`).
+
+### Networking behavior
+- [x] Provide extension-privileged cross-origin networking for MV2 pages/background (to fetch feeds without server CORS headers).
+- [ ] Verify CSP compatibility for extension pages that load external scripts (e.g., MathJax CDN in manifest `content_security_policy`).
+
+### UI Integration
+- [x] Toolbar icon/title from `browser_action` with popup toggle.
+- [x] Toolbar icon context menu: Options / Manage extension / Remove.
+
+### Verification Steps
+- [ ] Load Feedbro unpacked; confirm popup (`mainmenu.html`) renders.
+- [ ] Ensure `background.html` loads and initializes (after MV2 background host implemented).
+- [ ] Feed fetch: subscribe to an HTTPS feed lacking CORS and confirm items load.
+- [ ] Trigger a notification rule; confirm a desktop notification appears and events fire.
+
+### Implementation Pointers (internal)
+- [ ] Add `MV2BackgroundHost` akin to `BackgroundWorkerHost` to load `background.html` and inject `BackgroundJSBridge`.
+- [ ] Extend `MV2Extension.handleAPICall` with `runtime` case mirroring MV3’s `handleRuntimeCall` for messaging/ports.
+- [ ] Wire `NetworkHandler` into `WebEngine`/navigation delegates to enable `webRequest`/`webRequestBlocking` decisions.
+- [ ] Add a native notifications shim and bridge methods in JS (page + background) for `chrome.notifications.*`.
+- [ ] Evaluate strategy for MV2 cross-origin requests (native fetch bridge or relaxed WKWebView policy within extension contexts).

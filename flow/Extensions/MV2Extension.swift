@@ -10,6 +10,8 @@ class MV2Extension: Extension {
     let permissionManager: PermissionManager
     let alarmsManager: AlarmsManager
     let i18nManager: I18nManager
+    private var backgroundHost: BackgroundPageHost?
+    private let messaging = MessagingCenter()
 
     init(manifest: Manifest, directoryURL: URL) {
         let id = UUID().uuidString
@@ -41,8 +43,22 @@ class MV2Extension: Extension {
         }
     }
 
-    func start() {}
+    func start() {
+        // Start persistent background page if present
+        if let bg = manifest.background, let page = bg.page, !page.isEmpty {
+            let host = BackgroundPageHost(ext: self, pageRelativePath: page)
+            self.backgroundHost = host
+            host.start()
+            if let wv = host.webView { messaging.registerBackground(wv) }
+        }
+    }
     func stop() {}
+    
+    // Broadcast tabs.* events into the background context
+    func broadcastTabsEvent(name: String, payload: [String: Any]) {
+        guard let bg = backgroundHost?.webView else { return }
+        broadcastEvent(to: bg, name: name, payload: payload)
+    }
 
     func handleAPICall(from webView: WKWebView, message: WKScriptMessage) {
         guard let body = message.body as? [String: Any],
@@ -56,6 +72,14 @@ class MV2Extension: Extension {
         }
 
         switch api {
+        case "network":
+            if method == "fetch" {
+                handleNetworkFetch(params: params) { result in
+                    self.sendResponse(to: webView, callbackId: callbackId, result: result)
+                }
+            } else {
+                self.sendResponse(to: webView, callbackId: callbackId, result: NSNull())
+            }
         case "storage":
             guard let area = body["area"] as? String else { return }
 
@@ -85,6 +109,11 @@ class MV2Extension: Extension {
 
         case "i18n":
             runtime.i18n.handleCall(method: method, params: params) { result in
+                self.sendResponse(to: webView, callbackId: callbackId, result: result)
+            }
+
+        case "runtime":
+            self.handleRuntimeCall(from: webView, method: method, params: params) { result in
                 self.sendResponse(to: webView, callbackId: callbackId, result: result)
             }
 
@@ -132,5 +161,89 @@ class MV2Extension: Extension {
         DispatchQueue.main.async {
             webView.evaluateJavaScript(script)
         }
+    }
+
+    // MARK: - Network (MV2 host-permissions enforced fetch)
+    private func handleNetworkFetch(params: [String: Any], completion: @escaping (Any?) -> Void) {
+        guard let urlString = params["url"] as? String else { completion(["_error": "Invalid URL"]); return }
+
+        // Evaluate against host permissions. Support MV2 style host wildcards inside permissions as well.
+        var patterns: [String] = []
+        if let hostPerms = manifest.host_permissions { patterns.append(contentsOf: hostPerms) }
+        if let perms = manifest.permissions {
+            for p in perms { if p == "<all_urls>" || p.contains("://") { patterns.append(p) } }
+        }
+        if patterns.isEmpty || HostPermissions.isAllowed(urlString: urlString, patterns: patterns) == false {
+            completion(["_error": "Host not permitted by host_permissions"])
+            return
+        }
+
+        // Build request
+        let opts = params["options"] as? [String: Any] ?? [:]
+        var request = URLRequest(url: URL(string: urlString)!)
+        request.httpMethod = (opts["method"] as? String) ?? "GET"
+        if let headers = opts["headers"] as? [String: Any] {
+            for (k, v) in headers {
+                if let s = v as? String { request.setValue(s, forHTTPHeaderField: k) }
+            }
+        }
+        if let body = opts["body"] as? String { request.httpBody = body.data(using: .utf8) }
+
+        // Perform via URLSession (bypasses WebView CORS)
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(["_error": error.localizedDescription])
+                return
+            }
+            let http = response as? HTTPURLResponse
+            let status = http?.statusCode ?? 0
+            var headersOut: [String: String] = [:]
+            if let all = http?.allHeaderFields {
+                for (k, v) in all { headersOut[String(describing: k)] = String(describing: v) }
+            }
+            let bodyText: String = {
+                if let d = data, let s = String(data: d, encoding: .utf8) { return s }
+                return ""
+            }()
+            let result: [String: Any] = [
+                "ok": (200...299).contains(status),
+                "status": status,
+                "statusText": HTTPURLResponse.localizedString(forStatusCode: status),
+                "url": urlString,
+                "headers": headersOut,
+                "bodyText": bodyText
+            ]
+            completion(result)
+        }
+        task.resume()
+    }
+
+    // MARK: - Runtime Messaging (MV2)
+    private func handleRuntimeCall(from webView: WKWebView, method: String, params: [String: Any], completion: (Any?) -> Void) {
+        switch method {
+        case "sendMessage":
+            let message = params["message"] ?? NSNull()
+            messaging.sendMessage(from: webView, message: message)
+            completion(NSNull())
+        case "connect":
+            let name = params["name"] as? String
+            let portId = params["portId"] as? String ?? UUID().uuidString
+            messaging.connect(from: webView, portId: portId, name: name)
+            completion(["portId": portId])
+        case "postPortMessage":
+            guard let portId = params["portId"] as? String else { completion(NSNull()); return }
+            let message = params["message"] ?? NSNull()
+            messaging.postPortMessage(from: webView, portId: portId, message: message)
+            completion(NSNull())
+        case "disconnectPort":
+            if let portId = params["portId"] as? String { messaging.disconnectPort(portId: portId) }
+            completion(NSNull())
+        default:
+            completion(NSNull())
+        }
+    }
+
+    func registerPageWebView(_ webView: WKWebView) {
+        messaging.registerPage(webView)
     }
 }

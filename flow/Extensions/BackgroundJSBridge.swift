@@ -193,6 +193,73 @@ struct BackgroundJSBridge {
         return __flowCall({ api: 'fontSettings', method: 'getFontList', params: {} })
           .then(function(list){ if (callback) try { callback(Array.isArray(list) ? list : []); } catch(e){}; return list; });
       };
+      // Network shims for background contexts (MV2 background page or MV3 worker shell)
+      try {
+        // fetch shim: route through native to enforce host permissions and bypass CORS
+        var __origFetch = window.fetch;
+        window.fetch = function(input, init){
+          var url = (typeof input === 'string') ? input : (input && input.url) || String(input || '');
+          var o = init || {};
+          var hdrs = {};
+          try {
+            if (o.headers) {
+              if (o.headers instanceof Headers) { o.headers.forEach(function(v,k){ hdrs[k] = v; }); }
+              else if (Array.isArray(o.headers)) { o.headers.forEach(function(pair){ if (pair && pair.length === 2) hdrs[pair[0]] = pair[1]; }); }
+              else if (typeof o.headers === 'object') { hdrs = Object.assign({}, o.headers); }
+            }
+          } catch (e) {}
+          var body = (typeof o.body === 'string') ? o.body : null;
+          return __flowCall({ api: 'network', method: 'fetch', params: { url: url, options: { method: (o.method || 'GET'), headers: hdrs, body: body } } })
+            .then(function(res){
+              if (!res || res._error) { throw new TypeError(res && res._error || 'Network error'); }
+              var h = new Headers(res.headers || {});
+              var bodyText = (res.bodyText != null) ? String(res.bodyText) : '';
+              return new Response(bodyText, { status: res.status || 0, statusText: res.statusText || '', headers: h });
+            });
+        };
+        // Minimal XMLHttpRequest shim over network.fetch (async only)
+        (function(){
+          function XHRShim(){
+            this.readyState = 0; // UNSENT
+            this.responseText = '';
+            this.status = 0;
+            this.statusText = '';
+            this.onreadystatechange = null;
+            this.onload = null;
+            this.onerror = null;
+            this._headers = {};
+            this._method = 'GET';
+            this._url = '';
+          }
+          XHRShim.prototype.open = function(method, url, async){
+            this._method = String(method || 'GET');
+            this._url = String(url || '');
+            this.readyState = 1; // OPENED
+            if (typeof this.onreadystatechange === 'function') try { this.onreadystatechange(); } catch(e){}
+          };
+          XHRShim.prototype.setRequestHeader = function(name, value){ this._headers[String(name)] = String(value); };
+          XHRShim.prototype.send = function(body){
+            var self = this;
+            var b = (typeof body === 'string') ? body : null;
+            __flowCall({ api: 'network', method: 'fetch', params: { url: self._url, options: { method: self._method, headers: self._headers, body: b } } })
+              .then(function(res){
+                if (!res || res._error) { throw new Error(res && res._error || 'Network error'); }
+                self.status = res.status || 0;
+                self.statusText = res.statusText || '';
+                self.responseText = (res.bodyText != null) ? String(res.bodyText) : '';
+                self.readyState = 4; // DONE
+                if (typeof self.onreadystatechange === 'function') try { self.onreadystatechange(); } catch(e){}
+                if (typeof self.onload === 'function') try { self.onload(); } catch(e){}
+              })
+              .catch(function(){
+                self.status = 0; self.statusText = 'error'; self.readyState = 4;
+                if (typeof self.onreadystatechange === 'function') try { self.onreadystatechange(); } catch(e){}
+                if (typeof self.onerror === 'function') try { self.onerror(); } catch(e){}
+              });
+          };
+          try { window.XMLHttpRequest = XHRShim; } catch (e) {}
+        })();
+      } catch (e) {}
       chrome.tabs = chrome.tabs || {};
       chrome.tabs.onCreated = chrome.tabs.onCreated || { addListener: function(fn){ window.flowBrowser.runtime._add('tabs.onCreated', fn); } };
       chrome.tabs.onUpdated = chrome.tabs.onUpdated || { addListener: function(fn){ window.flowBrowser.runtime._add('tabs.onUpdated', fn); } };

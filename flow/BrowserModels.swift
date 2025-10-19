@@ -118,14 +118,18 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
 // This keeps pinned tabs updating title/history/favicon even when off-screen.
 private final class BackgroundDelegate: NSObject, WKNavigationDelegate, WKUIDelegate {
     weak var tab: BrowserTab?
-    init(tab: BrowserTab) { self.tab = tab }
+    // Weak reference to extension manager to consult network handlers off-screen
+    weak var extensionManager: ExtensionManager?
+    init(tab: BrowserTab, extensionManager: ExtensionManager? = nil) { self.tab = tab; self.extensionManager = extensionManager }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         tab?.updateMetadata(from: webView)
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        decisionHandler(.allow)
+        NetworkInterception.shouldAllow(navigationAction: navigationAction, extensionManager: extensionManager) { allow in
+            decisionHandler(allow ? .allow : .cancel)
+        }
     }
 }
 

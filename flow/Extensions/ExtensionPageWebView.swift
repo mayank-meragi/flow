@@ -71,6 +71,13 @@ struct ExtensionPageWebView: NSViewRepresentable {
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         let ucc = WKUserContentController()
+        // Mark this webview as an Extension Page so JS bridge can scope shims
+        let flagScript = WKUserScript(
+            source: "(function(){ try { window.__flowExtensionPage = true; } catch(e){} })();",
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: false
+        )
+        ucc.addUserScript(flagScript)
         let script = WKUserScript(source: ExtensionJSBridge.script, injectionTime: .atDocumentStart, forMainFrameOnly: false)
         ucc.addUserScript(script)
         ucc.add(context.coordinator, name: "flowExtension")
@@ -88,6 +95,9 @@ struct ExtensionPageWebView: NSViewRepresentable {
         webView.uiDelegate = context.coordinator
         context.coordinator.hostedWebView = webView
         `extension`.registerPageWebView(webView)
+        // Attach content rule lists (if any) for this extension
+        let lists = `extension`.runtime.networkHandler.getContentRuleLists()
+        for list in lists { webView.configuration.userContentController.add(list) }
         webView.load(URLRequest(url: url))
         return webView
     }

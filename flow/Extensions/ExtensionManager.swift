@@ -40,8 +40,11 @@ class ExtensionManager: ObservableObject {
 
     private func broadcastTabsEvent(name: String, payload: [String: Any]) {
         for ext in extensions.values {
-            guard let mv3 = ext as? MV3Extension else { continue }
-            mv3.broadcastTabsEvent(name: name, payload: payload)
+            if let mv3 = ext as? MV3Extension {
+                mv3.broadcastTabsEvent(name: name, payload: payload)
+            } else if let mv2 = ext as? MV2Extension {
+                mv2.broadcastTabsEvent(name: name, payload: payload)
+            }
         }
     }
 

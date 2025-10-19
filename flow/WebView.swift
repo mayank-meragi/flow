@@ -18,7 +18,10 @@ struct BrowserWebView: NSViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-            decisionHandler(.allow)
+            // Ask extension NetworkHandlers whether to allow/block this navigation
+            NetworkInterception.shouldAllow(navigationAction: navigationAction, extensionManager: extensionManager) { allow in
+                decisionHandler(allow ? .allow : .cancel)
+            }
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -235,6 +238,11 @@ struct BrowserWebView: NSViewRepresentable {
             if let mv3 = ext as? MV3Extension {
                 mv3.registerPageWebView(view)
             }
+        }
+        // Attach content rule lists (MV3) from all loaded extensions
+        for ext in extensionManager.extensions.values {
+            let lists = ext.runtime.networkHandler.getContentRuleLists()
+            for list in lists { view.configuration.userContentController.add(list) }
         }
         // Install content scripts for MAIN/ISOLATED worlds with proper matches/run_at/all_frames/match_about_blank
         if tab.didInstallContentScripts == false {

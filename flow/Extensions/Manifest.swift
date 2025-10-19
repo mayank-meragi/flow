@@ -59,7 +59,7 @@ struct Manifest: Codable {
     let permissions: [String]?
     let host_permissions: [String]?
     let content_scripts: [ContentScript]?
-    let background: MV3Background?
+    let background: Background?
     let commands: [String: CommandDef]?
 
     enum CodingKeys: String, CodingKey {
@@ -80,7 +80,7 @@ struct Manifest: Codable {
         permissions = try container.decodeIfPresent([String].self, forKey: .permissions)
         host_permissions = try container.decodeIfPresent([String].self, forKey: .host_permissions)
         default_locale = try container.decodeIfPresent(String.self, forKey: .default_locale)
-        background = try container.decodeIfPresent(MV3Background.self, forKey: .background)
+        background = try container.decodeIfPresent(Background.self, forKey: .background)
         content_scripts = try container.decodeIfPresent([ContentScript].self, forKey: .content_scripts)
         commands = try container.decodeIfPresent([String: CommandDef].self, forKey: .commands)
 
@@ -120,9 +120,13 @@ struct Action: Codable {
     let default_icon: IconSet?
 }
 
-// MV3 background configuration
-struct MV3Background: Codable {
+// Background configuration (MV2 + MV3)
+struct Background: Codable {
+    // MV3
     let service_worker: String?
+    // MV2
+    let page: String?
+    let persistent: Bool?
 }
 
 // Content scripts entries (minimal subset needed for Dark Reader)
