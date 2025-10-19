@@ -193,6 +193,16 @@ struct BackgroundJSBridge {
         return __flowCall({ api: 'fontSettings', method: 'getFontList', params: {} })
           .then(function(list){ if (callback) try { callback(Array.isArray(list) ? list : []); } catch(e){}; return list; });
       };
+      // notifications API (minimal)
+      chrome.notifications = chrome.notifications || {};
+      chrome.notifications.onClicked = chrome.notifications.onClicked || { addListener: function(fn){ window.flowBrowser.runtime._add('notifications.onClicked', fn); } };
+      chrome.notifications.onClosed = chrome.notifications.onClosed || { addListener: function(fn){ window.flowBrowser.runtime._add('notifications.onClosed', fn); } };
+      chrome.notifications.create = function(idOrOptions, optionsOrCb, cb){
+        var nid = null, opts = null, callback = null;
+        if (typeof idOrOptions === 'string') { nid = idOrOptions; opts = optionsOrCb || {}; callback = cb; }
+        else { opts = idOrOptions || {}; callback = optionsOrCb; }
+        return __flowCall({ api: 'notifications', method: 'create', params: { notificationId: nid, options: opts } }).then(function(id){ if (callback) try { callback(String(id || '')); } catch(e){}; return id; });
+      };
       // Network shims for background contexts (MV2 background page or MV3 worker shell)
       try {
         // fetch shim: route through native to enforce host permissions and bypass CORS

@@ -79,9 +79,9 @@ The goal of this phase is to support a core set of APIs that are common to both 
 - [ ] **Omnibox API (`omnibox`):**
     - [ ] Parse the `omnibox` key from the manifest to register a keyword.
     - [ ] Fire `omnibox.onInputStarted`, `onInputChanged`, and `onInputEntered` events.
-- [ ] **Notifications API (`notifications`):**
-    - [ ] Implement `notifications.create` to display system notifications.
-    - [ ] Handle notification events like `onClicked` and `onClosed`.
+- [x] **Notifications API (`notifications`):**
+    - [x] Implement `notifications.create` to display system notifications (macOS `UNUserNotificationCenter`).
+    - [x] Handle notification events `onClicked` and `onClosed` via background event dispatch.
 
 ### 4. Scripting & Page Interaction
 - [ ] **Content Scripts:**
@@ -129,7 +129,10 @@ This checklist tracks what’s needed for the Feedbro MV2 extension (test_extens
   - [x] Route WKNavigationDelegate decisions through aggregated `NetworkHandler.shouldProcessRequest` (MV2 block, MV3 allow).
   - [x] Attach MV3 `WKContentRuleList`s to all webviews.
   - [x] Extension-page XHR/fetch routed via native with host-permission checks.
-  - [ ] Subresource (non-navigation) request interception (WebKit limitation; needs alternative strategy).
+  - [x] Subresource (non-navigation) requests: adopt alternatives due to WKWebView limits
+    - [x] MV3: use `WKContentRuleList` (DeclarativeNetRequestHandler) for subresource block/redirect when rules are provided.
+    - [x] MV2/MV3: route extension-initiated `fetch`/`XMLHttpRequest` via native with host-permission checks (page + background).
+    - [ ] Optional: expose an opt-in native fetch helper for content scripts if needed (non-default to avoid breaking sites).
 
 ### Chrome APIs (required/used by Feedbro)
 - Tabs API

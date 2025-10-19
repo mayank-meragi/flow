@@ -263,6 +263,18 @@ struct ExtensionJSBridge {
           .then(function(list){ if (callback) try { callback(Array.isArray(list) ? list : []); } catch(e){} });
       };
 
+      // notifications API (minimal; mainly used by background, but expose here for parity)
+      window.chrome.notifications = window.chrome.notifications || {};
+      window.chrome.notifications.onClicked = window.chrome.notifications.onClicked || { addListener: function(fn){ window.flowBrowser.runtime._add('notifications.onClicked', fn); } };
+      window.chrome.notifications.onClosed = window.chrome.notifications.onClosed || { addListener: function(fn){ window.flowBrowser.runtime._add('notifications.onClosed', fn); } };
+      window.chrome.notifications.create = function(idOrOptions, optionsOrCb, cb){
+        var nid = null, opts = null, callback = null;
+        if (typeof idOrOptions === 'string') { nid = idOrOptions; opts = optionsOrCb || {}; callback = cb; }
+        else { opts = idOrOptions || {}; callback = optionsOrCb; }
+        __flowCall({ api: 'notifications', method: 'create', params: { notificationId: nid, options: opts } })
+          .then(function(id){ if (callback) try { callback(String(id || '')); } catch(e){} });
+      };
+
       // Network shims for MV2 Extension Pages only
       try {
         if (window.__flowExtensionPage) {

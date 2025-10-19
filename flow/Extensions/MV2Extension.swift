@@ -4,7 +4,21 @@ import WebKit
 class MV2Extension: Extension {
     let id: String
     let manifest: Manifest
-    let runtime: APIRuntime
+    lazy var runtime: APIRuntime = {
+        let notificationsAPI = NotificationsAPI(extensionId: id, onClicked: { [weak self] notifId in
+            self?.emitNotificationClicked(notifId)
+        }, onClosed: { [weak self] notifId, byUser in
+            self?.emitNotificationClosed(notifId: notifId, byUser: byUser)
+        })
+        return MV2APIRuntime(
+            storageManager: self.storageManager,
+            permissionManager: self.permissionManager,
+            alarmsManager: self.alarmsManager,
+            i18nManager: self.i18nManager,
+            extensionName: self.manifest.name ?? "Unknown Extension",
+            notificationsAPI: notificationsAPI
+        )
+    }()
     let directoryURL: URL
     let storageManager: StorageManager
     let permissionManager: PermissionManager
@@ -25,14 +39,11 @@ class MV2Extension: Extension {
         self.alarmsManager = AlarmsManager()
         self.i18nManager = I18nManager(
             extensionDirectory: directoryURL, defaultLocale: manifest.default_locale)
-        self.runtime = MV2APIRuntime(
-            storageManager: self.storageManager,
-            permissionManager: self.permissionManager,
-            alarmsManager: self.alarmsManager,
-            i18nManager: self.i18nManager,
-            extensionName: manifest.name ?? "Unknown Extension"
-        )
-
+        let notificationsAPI = NotificationsAPI(extensionId: id, onClicked: { [weak self] notifId in
+            self?.emitNotificationClicked(notifId)
+        }, onClosed: { [weak self] notifId, byUser in
+            self?.emitNotificationClosed(notifId: notifId, byUser: byUser)
+        })
         // Weak self to avoid retain cycles
         self.alarmsManager.onAlarm = { [weak self] alarm in
             // This is tricky. We don't know which webView to broadcast to.
@@ -72,6 +83,10 @@ class MV2Extension: Extension {
         }
 
         switch api {
+        case "notifications":
+            runtime.notifications.handleCall(method: method, params: params) { result in
+                self.sendResponse(to: webView, callbackId: callbackId, result: result)
+            }
         case "network":
             if method == "fetch" {
                 handleNetworkFetch(params: params) { result in
@@ -245,5 +260,18 @@ class MV2Extension: Extension {
 
     func registerPageWebView(_ webView: WKWebView) {
         messaging.registerPage(webView)
+    }
+
+    // MARK: - Notifications event emitters
+    private func emitNotificationClicked(_ notificationId: String) {
+        guard let bg = backgroundHost?.webView else { return }
+        let js = "(function(){ try { var ls=window.flowBrowser.runtime.getEventListeners('notifications.onClicked')||[]; ls.forEach(function(l){ try { l('" + notificationId + "'); } catch(e){} }); } catch(e){} })()"
+        DispatchQueue.main.async { bg.evaluateJavaScript(js, completionHandler: nil) }
+    }
+    private func emitNotificationClosed(notifId: String, byUser: Bool) {
+        guard let bg = backgroundHost?.webView else { return }
+        let byUserStr = byUser ? "true" : "false"
+        let js = "(function(){ try { var ls=window.flowBrowser.runtime.getEventListeners('notifications.onClosed')||[]; ls.forEach(function(l){ try { l('" + notifId + "', " + byUserStr + "); } catch(e){} }); } catch(e){} })()"
+        DispatchQueue.main.async { bg.evaluateJavaScript(js, completionHandler: nil) }
     }
 }
